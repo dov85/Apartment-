@@ -1,0 +1,9 @@
+
+{
+  "name": "Apartment Hunter IL",
+  "description": "A smart assistant for managing apartment listings from Yad2 and Facebook. Extract details via AI, track statuses, and compare prices effectively.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
