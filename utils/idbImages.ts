@@ -60,7 +60,9 @@ export async function saveImageDataUrl(dataUrl: string): Promise<string> {
  */
 export async function getImageObjectURL(key: string): Promise<string | null> {
   if (key.startsWith('cloud://')) {
-    return getPublicImageUrl(key.replace('cloud://', ''));
+    const url = getPublicImageUrl(key.replace('cloud://', ''));
+    console.log('getImageObjectURL cloud://', key, '→', url);
+    return url;
   }
 
   const bareKey = key.startsWith('file://') ? key.replace('file://', '') : key;
@@ -69,10 +71,14 @@ export async function getImageObjectURL(key: string): Promise<string | null> {
   if (!key.startsWith('idb-')) {
     const server = await isServerAvailable();
     if (server) {
-      return getFileImageURL(bareKey);
+      const url = getFileImageURL(bareKey);
+      console.log('getImageObjectURL server:', key, '→', url);
+      return url;
     }
     // Standalone: use Supabase public URL
-    return getPublicImageUrl(bareKey);
+    const url = getPublicImageUrl(bareKey);
+    console.log('getImageObjectURL standalone:', key, '→', url);
+    return url;
   }
 
   // Legacy IDB key

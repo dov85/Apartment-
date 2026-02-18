@@ -30,9 +30,17 @@ let _serverAvailable: boolean | null = null;
 /** Returns true when the Vite dev-server API is reachable. */
 export async function isServerAvailable(): Promise<boolean> {
   if (_serverAvailable !== null) return _serverAvailable;
+
+  // On GitHub Pages (or any .github.io host), server is NEVER available
+  if (typeof window !== 'undefined' && window.location.hostname.includes('github.io')) {
+    _serverAvailable = false;
+    console.log('isServerAvailable: false (github.io detected)');
+    return false;
+  }
+
   try {
     const res = await fetch('/api/supabase/status', { signal: AbortSignal.timeout(1500) });
-    // GitHub Pages returns 200 with HTML for any path (SPA redirect).
+    // GitHub Pages SPA redirect returns 200 with HTML for any path.
     // The real dev-server returns JSON. Check content-type to distinguish.
     const ct = res.headers.get('content-type') || '';
     _serverAvailable = res.ok && ct.includes('application/json');
