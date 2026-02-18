@@ -42,19 +42,17 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body class="no-select">
     <div id="root"></div>
-    <script type="module" src="index.tsx"></script>
+    <script type="module" src="./index.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          // Changed to relative path to avoid "Page not found" on some hosting providers
           navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration failed:', err));
         });
       }
     </script>
-<script type="module" src="/index.tsx"></script>
 </body>
 </html>

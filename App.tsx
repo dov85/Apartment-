@@ -4,7 +4,7 @@ import { Property, PropertyStatus } from './types.ts';
 import PropertyCard from './components/PropertyCard.tsx';
 import MapView from './components/MapView';
 import { saveImageDataUrl, deleteImageKey, getImageObjectURL, loadApartmentsFromFile, saveApartmentsToFile } from './utils/idbImages';
-import { loadApartmentsFromCloud, saveApartmentsToCloud, isCloudAvailable } from './services/supabaseSync';
+import { loadApartmentsFromCloud, saveApartmentsToCloud, isServerAvailable } from './services/supabaseSync';
 
 const SYNC_SERVICE_URL = 'https://api.keyvalue.xyz'; 
 

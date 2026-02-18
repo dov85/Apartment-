@@ -5,12 +5,14 @@ import apiPlugin from './server/apiPlugin';
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
+    const isGHPages = process.env.GITHUB_PAGES === 'true';
     return {
+      base: isGHPages ? '/Apartment-/' : '/',
       server: {
         port: 3000,
         host: '0.0.0.0',
       },
-      plugins: [react(), apiPlugin()],
+      plugins: [react(), ...(isGHPages ? [] : [apiPlugin()])],
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)

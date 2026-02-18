@@ -1,11 +1,12 @@
 /**
  * Image persistence utilities.
  * Primary: saves images as files on disk via /api/images (file ref: "file://<key>")
- * Cloud:   also uploads to Supabase Storage via /api/supabase/* proxy
+ * Cloud:   also uploads to Supabase Storage (directly or via proxy)
+ * Standalone: when file API is unreachable (GitHub Pages), stores only in cloud
  * Fallback: IndexedDB (ref: plain key without prefix — legacy)
  */
 
-import { uploadImageToCloud, deleteImageFromCloud, getPublicImageUrl } from '../services/supabaseSync';
+import { uploadImageToCloud, deleteImageFromCloud, getPublicImageUrl, isServerAvailable } from '../services/supabaseSync';
 
 // ── File-based API ─────────────────────────────────────────
 
@@ -31,16 +32,29 @@ export async function deleteFileImage(key: string): Promise<void> {
 // ── Unified helpers (handle both file:// and idb:// refs) ──
 
 export async function saveImageDataUrl(dataUrl: string): Promise<string> {
-  // Try file-based first
-  try {
-    const key = await saveImageToFile(dataUrl);
-    // Also upload to cloud (non-blocking)
-    uploadImageToCloud(dataUrl).catch(e => console.warn('Cloud image upload failed:', e));
-    return key; // stored on disk
-  } catch (e) {
-    console.warn('File API unavailable, falling back to IndexedDB', e);
+  const server = await isServerAvailable();
+
+  if (server) {
+    // Server mode: save to file API, also cloud (non-blocking)
+    try {
+      const key = await saveImageToFile(dataUrl);
+      uploadImageToCloud(dataUrl).catch(e => console.warn('Cloud image upload failed:', e));
+      return key; // stored on disk
+    } catch (e) {
+      console.warn('File API unavailable, falling back', e);
+    }
+  } else {
+    // Standalone mode: upload directly to Supabase cloud
+    try {
+      const key = await uploadImageToCloud(dataUrl);
+      console.log('Image saved to Supabase cloud (standalone mode):', key);
+      return key; // same bare key format — will resolve via cloud URL
+    } catch (e) {
+      console.warn('Cloud upload failed in standalone mode', e);
+    }
   }
-  // Fallback: IndexedDB
+
+  // Final fallback: IndexedDB
   const res = await fetch(dataUrl);
   const blob = await res.blob();
   const db = await openDB();
@@ -57,20 +71,28 @@ export async function saveImageDataUrl(dataUrl: string): Promise<string> {
 /**
  * Resolve an image key to a displayable URL.
  * - "cloud://<key>" → Supabase public URL
- * - "file://<key>" or bare key without "idb-" prefix → served from /api/images/<key>
+ * - "file://<key>" or bare key without "idb-" prefix →
+ *     server mode: served from /api/images/<key>
+ *     standalone:  Supabase public URL for images/<key>
  * - "idb-..." → IndexedDB blob
  */
 export async function getImageObjectURL(key: string): Promise<string | null> {
   if (key.startsWith('cloud://')) {
     return getPublicImageUrl(key.replace('cloud://', ''));
   }
-  if (key.startsWith('file://')) {
-    return getFileImageURL(key.replace('file://', ''));
-  }
-  // If key does NOT start with "idb-", it's a file key (new default)
+
+  const bareKey = key.startsWith('file://') ? key.replace('file://', '') : key;
+
+  // Non-IDB key
   if (!key.startsWith('idb-')) {
-    return getFileImageURL(key);
+    const server = await isServerAvailable();
+    if (server) {
+      return getFileImageURL(bareKey);
+    }
+    // Standalone: use Supabase public URL
+    return getPublicImageUrl(bareKey);
   }
+
   // Legacy IDB key
   const db = await openDB();
   return new Promise((resolve, reject) => {
