@@ -23,6 +23,11 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
   const mainImage = property.images && property.images.length > 0 ? property.images[0] : null;
   const [resolvedMainImage, setResolvedMainImage] = useState<string | null>(null);
 
+  // Gallery lightbox state
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+  const [resolvedGalleryImages, setResolvedGalleryImages] = useState<string[]>([]);
+
   useEffect(() => {
     let active = true;
     const resolve = async () => {
@@ -42,9 +47,55 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
     return () => { active = false; if (resolvedMainImage && resolvedMainImage.startsWith('blob:')) URL.revokeObjectURL(resolvedMainImage); };
   }, [property.images]);
 
+  // Resolve all images when gallery opens
+  useEffect(() => {
+    if (!galleryOpen) return;
+    let active = true;
+    const resolveAll = async () => {
+      const imgs = property.images || [];
+      const urls: string[] = [];
+      for (const img of imgs) {
+        if (typeof img === 'string' && img.startsWith('idb://')) {
+          try {
+            const url = await getImageObjectURL(img.replace('idb://', ''));
+            urls.push(url || '');
+          } catch { urls.push(''); }
+        } else {
+          urls.push(img as string);
+        }
+      }
+      if (active) setResolvedGalleryImages(urls.filter(Boolean));
+    };
+    resolveAll();
+    return () => {
+      active = false;
+      // revoke blob URLs when gallery closes
+      resolvedGalleryImages.forEach(u => { if (u.startsWith('blob:')) URL.revokeObjectURL(u); });
+    };
+  }, [galleryOpen, property.images]);
+
+  // Keyboard navigation in gallery
+  useEffect(() => {
+    if (!galleryOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setGalleryOpen(false);
+      if (e.key === 'ArrowLeft') setGalleryIndex(i => Math.min(i + 1, resolvedGalleryImages.length - 1));
+      if (e.key === 'ArrowRight') setGalleryIndex(i => Math.max(i - 1, 0));
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [galleryOpen, resolvedGalleryImages.length]);
+
+  const openGallery = () => {
+    if (!property.images || property.images.length === 0) return;
+    setGalleryIndex(0);
+    setGalleryOpen(true);
+  };
+
   return (
+    <>
     <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-xl transition-all group flex flex-col h-full">
-      <div className="relative h-64 bg-slate-100 shrink-0">
+      <div className="relative h-64 bg-slate-100 shrink-0 cursor-pointer" onClick={openGallery}>
         {resolvedMainImage ? (
           <img 
             src={resolvedMainImage} 
@@ -149,6 +200,81 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
         </div>
       </div>
     </div>
+
+    {/* Full-screen image gallery lightbox */}
+    {galleryOpen && resolvedGalleryImages.length > 0 && (
+      <div
+        className="fixed inset-0 bg-black/95 z-[100] flex flex-col items-center justify-center"
+        onClick={() => setGalleryOpen(false)}
+      >
+        {/* Close button */}
+        <button
+          className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full transition-colors z-10"
+          onClick={(e) => { e.stopPropagation(); setGalleryOpen(false); }}
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        {/* Counter */}
+        <div className="absolute top-5 left-1/2 -translate-x-1/2 text-white/70 text-sm font-bold">
+          {galleryIndex + 1} / {resolvedGalleryImages.length}
+        </div>
+
+        {/* Main image */}
+        <div className="flex-1 flex items-center justify-center w-full px-16" onClick={(e) => e.stopPropagation()}>
+          <img
+            src={resolvedGalleryImages[galleryIndex]}
+            alt={`${property.title} - ${galleryIndex + 1}`}
+            className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl select-none"
+            draggable={false}
+          />
+        </div>
+
+        {/* Prev button */}
+        {galleryIndex > 0 && (
+          <button
+            className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/25 text-white p-3 rounded-full transition-colors"
+            onClick={(e) => { e.stopPropagation(); setGalleryIndex(i => i - 1); }}
+          >
+            <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        )}
+
+        {/* Next button */}
+        {galleryIndex < resolvedGalleryImages.length - 1 && (
+          <button
+            className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/25 text-white p-3 rounded-full transition-colors"
+            onClick={(e) => { e.stopPropagation(); setGalleryIndex(i => i + 1); }}
+          >
+            <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        )}
+
+        {/* Thumbnail strip */}
+        {resolvedGalleryImages.length > 1 && (
+          <div className="flex gap-2 py-4 px-4 overflow-x-auto max-w-full" onClick={(e) => e.stopPropagation()}>
+            {resolvedGalleryImages.map((url, i) => (
+              <button
+                key={i}
+                onClick={() => setGalleryIndex(i)}
+                className={`shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                  i === galleryIndex ? 'border-white scale-110 shadow-lg' : 'border-transparent opacity-50 hover:opacity-80'
+                }`}
+              >
+                <img src={url} className="w-full h-full object-cover" alt="" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    )}
+    </>
   );
 };
 
