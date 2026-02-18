@@ -173,7 +173,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
           </div>
         </div>
 
-        {/* Floor / Elevator / Balcony row */}
+        {/* Floor / Elevator / Balcony / Parking / Broker row */}
         <div className="flex flex-wrap items-center gap-2 mb-3 text-xs font-bold">
           {property.floor != null && (
             <span className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg">🏢 קומה {property.floor}</span>
@@ -183,6 +183,12 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
           )}
           {property.hasBalcony && (
             <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg">🏞️ מרפסת</span>
+          )}
+          {property.hasParking && (
+            <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-lg">🅿️ חניה</span>
+          )}
+          {property.hasBrokerFee && (
+            <span className="bg-red-50 text-red-700 px-2.5 py-1 rounded-lg">💰 תיווך</span>
           )}
         </div>
 

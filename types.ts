@@ -21,6 +21,8 @@ export interface Property {
   floor?: number;
   hasElevator?: boolean;
   hasBalcony?: boolean;
+  hasParking?: boolean;
+  hasBrokerFee?: boolean;
   rating?: number;  // 1-10
   notes?: string;
   images: string[];

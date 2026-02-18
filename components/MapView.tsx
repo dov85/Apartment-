@@ -23,7 +23,14 @@ interface MapViewProps {
 }
 
 const MapView: React.FC<MapViewProps> = ({ properties, mapProvider = 'OpenStreetMap', previewCoords = null }) => {
-  const center: [number, number] = [31.5, 34.8]; // Israel approximate center
+  // Center on Tel Aviv-Yafo / Bat Yam area
+  const center: [number, number] = [32.05, 34.78];
+
+  // Restrict map bounds to Tel Aviv-Yafo + Bat Yam area
+  const maxBounds: [[number, number], [number, number]] = [
+    [31.95, 34.70],  // SW corner (south of Bat Yam)
+    [32.15, 34.88],  // NE corner (north of Tel Aviv)
+  ];
 
   const tileUrl = mapProvider === 'OpenStreetMap'
     ? 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
@@ -40,7 +47,7 @@ const MapView: React.FC<MapViewProps> = ({ properties, mapProvider = 'OpenStreet
 
   return (
     <div className="mb-6 rounded-2xl overflow-hidden border border-slate-100">
-      <MapContainer center={center} zoom={7} style={{ height: 380, width: '100%' }}>
+      <MapContainer center={center} zoom={12} minZoom={11} maxBounds={maxBounds} maxBoundsViscosity={1.0} style={{ height: 380, width: '100%' }}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url={tileUrl}

@@ -31,6 +31,8 @@ const App: React.FC = () => {
   const [floor, setFloor] = useState('');
   const [hasElevator, setHasElevator] = useState(false);
   const [hasBalcony, setHasBalcony] = useState(false);
+  const [hasParking, setHasParking] = useState(false);
+  const [hasBrokerFee, setHasBrokerFee] = useState(false);
   const [rating, setRating] = useState(0);
   const [notes, setNotes] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'price' | 'rating'>('date');
@@ -283,6 +285,8 @@ const App: React.FC = () => {
     setFloor(prop.floor != null ? String(prop.floor) : '');
     setHasElevator(prop.hasElevator || false);
     setHasBalcony(prop.hasBalcony || false);
+    setHasParking(prop.hasParking || false);
+    setHasBrokerFee(prop.hasBrokerFee || false);
     setRating(prop.rating || 0);
     setNotes(prop.notes || '');
 
@@ -331,6 +335,8 @@ const App: React.FC = () => {
       floor: floor ? parseInt(floor) : undefined,
       hasElevator,
       hasBalcony,
+      hasParking,
+      hasBrokerFee,
       rating: rating || undefined,
       notes: notes || undefined,
       images: imageRefs,
@@ -405,6 +411,8 @@ const App: React.FC = () => {
     setFloor('');
     setHasElevator(false);
     setHasBalcony(false);
+    setHasParking(false);
+    setHasBrokerFee(false);
     setRating(0);
     setNotes('');
     setEditingId(null);
@@ -802,7 +810,7 @@ const App: React.FC = () => {
                   />
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 flex-wrap">
                   <label className="flex items-center gap-2 cursor-pointer select-none">
                     <input 
                       type="checkbox"
@@ -820,6 +828,24 @@ const App: React.FC = () => {
                       className="w-5 h-5 rounded-lg border-2 border-slate-200 text-indigo-600 focus:ring-indigo-500"
                     />
                     <span className="text-sm font-bold text-slate-700">🏞️ מרפסת</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input 
+                      type="checkbox"
+                      checked={hasParking}
+                      onChange={(e) => setHasParking(e.target.checked)}
+                      className="w-5 h-5 rounded-lg border-2 border-slate-200 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm font-bold text-slate-700">🅿️ חניה</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input 
+                      type="checkbox"
+                      checked={hasBrokerFee}
+                      onChange={(e) => setHasBrokerFee(e.target.checked)}
+                      className="w-5 h-5 rounded-lg border-2 border-slate-200 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm font-bold text-slate-700">💰 דמי תיווך</span>
                   </label>
                 </div>
               </div>
