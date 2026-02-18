@@ -11,7 +11,10 @@ export enum PropertyStatus {
 export interface Property {
   id: string;
   title: string;
-  address: string;
+  street: string;
+  city: string;
+  lat?: number;
+  lon?: number;
   price: number;
   phone: string;
   rooms: string;

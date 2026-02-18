@@ -5,9 +5,10 @@ import { Property, PropertyStatus } from '../types.ts';
 interface PropertyCardProps {
   property: Property;
   onStatusChange: (id: string, status: PropertyStatus | 'DELETE') => void;
+  onEdit?: (id: string) => void;
 }
 
-const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange }) => {
+const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, onEdit }) => {
   const getStatusColor = (status: PropertyStatus) => {
     switch (status) {
       case PropertyStatus.NEW: return 'bg-blue-100 text-blue-800';
@@ -59,7 +60,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange })
             <svg className="w-4 h-4 ml-1 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
             </svg>
-            {property.address || 'לא צויינה כתובת'}
+            {((property.street || '') + (property.city ? (', ' + property.city) : '')) || 'לא צויינה כתובת'}
           </p>
         </div>
 
@@ -106,6 +107,15 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange })
                 <option key={status} value={status}>{status}</option>
               ))}
             </select>
+            <button 
+               onClick={() => onEdit && onEdit(property.id)}
+               className="p-3 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-xl transition-colors"
+               title="ערוך"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536M9 11l6-6 3 3-6 6H9v-3z" />
+              </svg>
+            </button>
             <button 
                onClick={() => { if(confirm('למחוק את המודעה?')) onStatusChange(property.id, 'DELETE') }}
                className="p-3 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"

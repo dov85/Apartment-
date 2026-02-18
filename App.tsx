@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Property, PropertyStatus } from './types.ts';
 import PropertyCard from './components/PropertyCard.tsx';
+import MapView from './components/MapView';
 
 const SYNC_SERVICE_URL = 'https://api.keyvalue.xyz'; 
 
@@ -9,24 +10,47 @@ const App: React.FC = () => {
   const [properties, setProperties] = useState<Property[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [showMobileLink, setShowMobileLink] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [syncCode, setSyncCode] = useState<string>(localStorage.getItem('syncCode') || '');
   const [isSyncing, setIsSyncing] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   
   // Manual form states
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [street, setStreet] = useState('');
+  const [city, setCity] = useState('');
   const [title, setTitle] = useState('');
-  const [address, setAddress] = useState('');
+  // const [address, setAddress] = useState('');
   const [price, setPrice] = useState('');
   const [rooms, setRooms] = useState('');
   const [phone, setPhone] = useState('');
   const [link, setLink] = useState('');
 
   const pollInterval = useRef<any>(null);
+  const modalOverlayRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('apartments');
     if (saved) setProperties(JSON.parse(saved));
+  }, []);
+
+  // migrate old saved data which used `address` into `street`/`city`
+  useEffect(() => {
+    const saved = localStorage.getItem('apartments');
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved) as any[];
+      const migrated = parsed.map(item => {
+        if (item.address && !item.street && !item.city) {
+          // best-effort split: split by comma
+          const parts = item.address.split(',').map((p: string) => p.trim());
+          return { ...item, street: parts[0] || '', city: parts[1] || '' };
+        }
+        return item;
+      });
+      setProperties(migrated);
+      localStorage.setItem('apartments', JSON.stringify(migrated));
+    } catch (e) {}
   }, []);
 
   const fetchRemoteData = async (code: string) => {
@@ -67,6 +91,13 @@ const App: React.FC = () => {
     };
   }, [syncCode]);
 
+  useEffect(() => {
+    if (isAdding && modalOverlayRef.current) {
+      // focus overlay so paste (Ctrl+V) is captured
+      modalOverlayRef.current.focus();
+    }
+  }, [isAdding]);
+
   const saveProperties = (newProps: Property[]) => {
     setProperties(newProps);
     localStorage.setItem('apartments', JSON.stringify(newProps));
@@ -86,15 +117,63 @@ const App: React.FC = () => {
     });
   };
 
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (items) {
+      let handled = false;
+      Array.from(items).forEach((item) => {
+        if (item.kind === 'file' && item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = () => setImagePreviews(prev => [...prev, reader.result as string]);
+            reader.readAsDataURL(file);
+            handled = true;
+          }
+        }
+      });
+      if (handled) e.preventDefault();
+      return;
+    }
+
+    // Fallback: check files list
+    const files = (e.nativeEvent as any).clipboardData?.files as FileList | undefined;
+    if (files && files.length) {
+      Array.from(files).forEach(file => {
+        if (file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = () => setImagePreviews(prev => [...prev, reader.result as string]);
+          reader.readAsDataURL(file);
+        }
+      });
+    }
+  };
+
   const removeImage = (index: number) => {
     setImagePreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleEdit = (id: string) => {
+    const prop = properties.find(p => p.id === id);
+    if (!prop) return;
+    setEditingId(id);
+    setTitle(prop.title || '');
+    setStreet(prop.street || '');
+    setCity(prop.city || '');
+    setPrice(String(prop.price || ''));
+    setRooms(prop.rooms || '');
+    setPhone(prop.phone || '');
+    setLink(prop.link || '');
+    setImagePreviews(prop.images || []);
+    setIsAdding(true);
   };
 
   const handleFinalSave = () => {
     const newProp: Property = {
       id: Date.now().toString(),
       title: title || 'דירה חדשה',
-      address: address || '',
+      street: street || '',
+      city: city || '',
       price: parseInt(price) || 0,
       phone: phone || '',
       rooms: rooms || '',
@@ -104,20 +183,63 @@ const App: React.FC = () => {
       createdAt: Date.now(),
     };
 
-    const updated = [newProp, ...properties];
-    saveProperties(updated);
-    resetForm();
+    // try to geocode and then save (create or update)
+    (async () => {
+      const coords = await geocodeAddress(newProp.street, newProp.city);
+      if (coords) {
+        (newProp as any).lat = coords.lat;
+        (newProp as any).lon = coords.lon;
+      }
+      let updated: Property[];
+      if (editingId) {
+        updated = properties.map(p => p.id === editingId ? { ...p, ...newProp, id: editingId } : p);
+      } else {
+        updated = [newProp, ...properties];
+      }
+      saveProperties(updated);
+      resetForm();
+    })();
   };
 
   const resetForm = () => {
     setIsAdding(false);
     setImagePreviews([]);
     setTitle('');
-    setAddress('');
+    setStreet('');
+    setCity('');
     setPrice('');
     setRooms('');
     setPhone('');
     setLink('');
+    setEditingId(null);
+  };
+
+  // Simple Nominatim geocoding (free). Query: street + city + Israel.
+  const geocodeAddress = async (streetQ: string, cityQ: string) => {
+    const q = [streetQ, cityQ, 'Israel'].filter(Boolean).join(', ');
+    if (!q.trim()) return null;
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1&countrycodes=il` , {
+        headers: { 'Accept-Language': 'en-US', 'User-Agent': 'ApartmentHunter/1.0 (+https://example.com)'} as any
+      });
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+      }
+    } catch (e) {}
+    return null;
+  };
+
+  const [previewCoords, setPreviewCoords] = useState<{lat:number,lon:number}|null>(null);
+
+  const handleFindAddress = async () => {
+    const coords = await geocodeAddress(street, city);
+    if (coords) {
+      setPreviewCoords(coords);
+      alert('כתובת נמצאה — הסמן יעודכן על המפה.');
+    } else {
+      alert('לא נמצאה כתובת. נסה לשנות את הטקסט.');
+    }
   };
 
   const handleSyncSetup = () => {
@@ -201,10 +323,12 @@ const App: React.FC = () => {
             </svg>
             <span className="hidden sm:block text-[10px] font-black tracking-widest uppercase">הוסף</span>
           </button>
+          {/* Excel export removed — data stored locally in browser localStorage only */}
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto p-4 md:p-6">
+        <MapView properties={properties} previewCoords={previewCoords} />
         {properties.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
             {properties.map(property => (
@@ -212,6 +336,7 @@ const App: React.FC = () => {
                 key={property.id} 
                 property={property} 
                 onStatusChange={updateStatus}
+                  onEdit={handleEdit}
               />
             ))}
           </div>
@@ -282,7 +407,7 @@ const App: React.FC = () => {
 
       {/* Manual Entry Modal */}
       {isAdding && (
-        <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-50 flex items-center justify-center p-4 overflow-y-auto">
+      <div ref={modalOverlayRef} onPaste={handlePaste} tabIndex={0} className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-[2rem] md:rounded-[3rem] w-full max-w-2xl shadow-2xl overflow-hidden my-auto modal-animate">
             <div className="p-6 md:p-8 border-b border-slate-100 flex justify-between items-center">
               <h2 className="text-xl md:text-2xl font-black text-slate-800">הוספת מודעה חדשה</h2>
@@ -320,6 +445,7 @@ const App: React.FC = () => {
                     </svg>
                     <span className="text-[9px] font-black uppercase">הוסף</span>
                   </label>
+                  <div className="w-full text-[10px] text-slate-400 font-bold mt-2">או הדבק צילום מסך מהמחשב (Ctrl+V / ⌘+V) בתוך החלון</div>
                 </div>
               </div>
 
@@ -336,12 +462,26 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">כתובת</label>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">רחוב</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text"
+                      placeholder="רחוב ומספר"
+                      value={street}
+                      onChange={(e) => setStreet(e.target.value)}
+                      className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl md:rounded-2xl p-3 md:p-4 text-slate-800 font-bold focus:border-indigo-500 focus:bg-white outline-none transition-all"
+                    />
+                    <button onClick={handleFindAddress} className="px-3 py-2 bg-indigo-50 text-indigo-600 rounded-xl font-bold">מצא</button>
+                  </div>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">עיר</label>
                   <input 
                     type="text"
-                    placeholder="רחוב, עיר..."
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="עיר"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
                     className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl md:rounded-2xl p-3 md:p-4 text-slate-800 font-bold focus:border-indigo-500 focus:bg-white outline-none transition-all"
                   />
                 </div>
