@@ -20,7 +20,7 @@ function displayTitle(p: Property): string {
 const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, onEdit, onUpdate }) => {
   const [showNotes, setShowNotes] = useState(false);
   const [localNotes, setLocalNotes] = useState(property.notes || '');
-  const [expanded, setExpanded] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const notesTimer = React.useRef<any>(null);
 
   // Sync local notes when property changes externally
@@ -209,45 +209,34 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
       </div>
       
       <div className="p-6 flex flex-col flex-1">
-        {/* Always visible: title + address + price + rooms */}
-        <div className="cursor-pointer" onClick={() => setExpanded(!expanded)}>
-          <div className="mb-4">
-            <h3 className="font-black text-2xl text-slate-800 truncate mb-1">
-              {displayTitle(property)}
-            </h3>
-            {/* Show address line only if title is custom (not same as address) */}
-            {property.title && property.title !== 'דירה חדשה' && (property.street || property.city) && (
-              <p className="text-slate-500 text-sm font-bold flex items-center">
-                <svg className="w-4 h-4 ml-1 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                </svg>
-                {((property.street || '') + (property.city ? (', ' + property.city) : '')) || 'לא צויינה כתובת'}
-              </p>
-            )}
-          </div>
+        {/* Title + address */}
+        <div className="mb-4 cursor-pointer" onClick={() => setDetailOpen(true)}>
+          <h3 className="font-black text-2xl text-slate-800 truncate mb-1">
+            {displayTitle(property)}
+          </h3>
+          {property.title && property.title !== 'דירה חדשה' && property.title !== '' && (property.street || property.city) && (
+            <p className="text-slate-500 text-sm font-bold flex items-center">
+              <svg className="w-4 h-4 ml-1 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              </svg>
+              {((property.street || '') + (property.city ? (', ' + property.city) : ''))}
+            </p>
+          )}
+        </div>
 
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-              <span className="block text-[10px] font-black text-slate-400 uppercase mb-1">מחיר</span>
-              <span className="text-xl font-black text-indigo-600">₪{property.price?.toLocaleString() || '0'}</span>
-            </div>
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
-              <span className="block text-[10px] font-black text-slate-400 uppercase mb-1">חדרים</span>
-              <span className="text-xl font-black text-slate-800">{property.rooms || '-'}</span>
-            </div>
+        {/* Price + Rooms */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            <span className="block text-[10px] font-black text-slate-400 uppercase mb-1">מחיר</span>
+            <span className="text-xl font-black text-indigo-600">₪{property.price?.toLocaleString() || '0'}</span>
           </div>
-
-          {/* Expand/collapse indicator */}
-          <div className="flex justify-center">
-            <svg className={`w-5 h-5 text-slate-300 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-            </svg>
+          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
+            <span className="block text-[10px] font-black text-slate-400 uppercase mb-1">חדרים</span>
+            <span className="text-xl font-black text-slate-800">{property.rooms || '-'}</span>
           </div>
         </div>
 
-        {/* Expanded details */}
-        {expanded && (
-          <div className="mt-3 animate-[fadeIn_0.2s_ease-out]">
+        {/* Floor / Elevator / Balcony / Parking / Broker row */}
         <div className="flex flex-wrap items-center gap-2 mb-3 text-xs font-bold">
           {property.floor != null && (
             <span className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg">🏢 קומה {property.floor}</span>
@@ -282,32 +271,12 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
           )}
         </div>
 
-        {/* Notes toggle + area */}
-        <div className="mb-3">
-          <button
-            onClick={() => setShowNotes(!showNotes)}
-            className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-indigo-500 transition-colors"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-            {showNotes ? 'הסתר הערות' : (localNotes ? 'הערות ✏️' : 'הוסף הערה')}
-          </button>
-          {showNotes && (
-            <textarea
-              value={localNotes}
-              onChange={(e) => handleNotesChange(e.target.value)}
-              placeholder="רשום הערות על הדירה..."
-              className="mt-2 w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 text-sm text-slate-700 font-medium focus:border-indigo-400 focus:bg-white outline-none transition-all resize-none"
-              rows={3}
-              dir="rtl"
-            />
-          )}
-          {!showNotes && localNotes && (
-            <p className="mt-1 text-xs text-slate-400 truncate max-w-full">{localNotes}</p>
-          )}
-        </div>
+        {/* Notes preview */}
+        {localNotes && (
+          <p className="text-xs text-slate-400 truncate max-w-full mb-3">📝 {localNotes}</p>
+        )}
 
+        {/* Action buttons */}
         <div className="space-y-3 mt-auto">
           <div className="flex gap-2">
             {property.link && (
@@ -341,6 +310,15 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
               ))}
             </select>
             <button 
+               onClick={() => setDetailOpen(true)}
+               className="p-3 text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-xl transition-colors"
+               title="פרטים מלאים"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+            </button>
+            <button 
                onClick={() => onEdit && onEdit(property.id)}
                className="p-3 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-xl transition-colors"
                title="ערוך"
@@ -359,10 +337,144 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
             </button>
           </div>
         </div>
-          </div>
-        )}
       </div>
     </div>
+
+    {/* ───── Full-screen detail modal ───── */}
+    {detailOpen && (
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] flex items-end sm:items-center justify-center" onClick={() => setDetailOpen(false)}>
+        <div
+          className="bg-white w-full sm:max-w-lg sm:rounded-3xl rounded-t-3xl max-h-[92vh] overflow-y-auto shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+          dir="rtl"
+        >
+          {/* Detail header image */}
+          {resolvedMainImage && (
+            <div className="relative h-56 sm:h-72 cursor-pointer" onClick={openGallery}>
+              <img src={resolvedMainImage} alt={displayTitle(property)} className="w-full h-full object-cover sm:rounded-t-3xl" />
+              {property.images && property.images.length > 1 && (
+                <div className="absolute bottom-3 left-3 bg-black/50 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-lg">
+                  📷 {property.images.length} תמונות
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="p-6 space-y-5">
+            {/* Title + status */}
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="font-black text-2xl text-slate-800 mb-1">{displayTitle(property)}</h2>
+                {(property.street || property.city) && (
+                  <p className="text-slate-500 text-sm font-bold flex items-center gap-1">
+                    📍 {[property.street, property.city].filter(Boolean).join(', ')}
+                  </p>
+                )}
+              </div>
+              <span className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-black ${getStatusColor(property.status)}`}>
+                {property.status}
+              </span>
+            </div>
+
+            {/* Price + Rooms + Floor */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                <span className="block text-[10px] font-black text-slate-400 uppercase mb-1">מחיר</span>
+                <span className="text-lg font-black text-indigo-600">₪{property.price?.toLocaleString() || '0'}</span>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                <span className="block text-[10px] font-black text-slate-400 uppercase mb-1">חדרים</span>
+                <span className="text-lg font-black text-slate-800">{property.rooms || '-'}</span>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                <span className="block text-[10px] font-black text-slate-400 uppercase mb-1">קומה</span>
+                <span className="text-lg font-black text-slate-800">{property.floor != null ? property.floor : '-'}</span>
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
+              {property.hasElevator && <span className="bg-green-50 text-green-700 px-3 py-1.5 rounded-lg">🛗 מעלית</span>}
+              {property.hasBalcony && <span className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg">🏞️ מרפסת</span>}
+              {property.hasParking && <span className="bg-purple-50 text-purple-700 px-3 py-1.5 rounded-lg">🅿️ חניה</span>}
+              {property.hasBrokerFee && <span className="bg-red-50 text-red-700 px-3 py-1.5 rounded-lg">💰 דמי תיווך</span>}
+              {!property.hasElevator && !property.hasBalcony && !property.hasParking && !property.hasBrokerFee && (
+                <span className="text-slate-400">אין תגיות</span>
+              )}
+            </div>
+
+            {/* Rating */}
+            <div>
+              <span className="block text-[10px] font-black text-slate-400 uppercase mb-2">דירוג</span>
+              <div className="flex items-center gap-0.5" dir="ltr">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => (
+                  <button
+                    key={star}
+                    onClick={() => handleRatingClick(star)}
+                    className={`text-xl transition-all hover:scale-125 ${star <= (property.rating || 0) ? 'text-yellow-400 drop-shadow-sm' : 'text-slate-200 hover:text-yellow-300'}`}
+                  >
+                    ★
+                  </button>
+                ))}
+                {(property.rating || 0) > 0 && (
+                  <span className="text-sm font-black text-slate-500 mr-2">{property.rating}/10</span>
+                )}
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <span className="block text-[10px] font-black text-slate-400 uppercase mb-2">הערות</span>
+              <textarea
+                value={localNotes}
+                onChange={(e) => handleNotesChange(e.target.value)}
+                placeholder="רשום הערות על הדירה..."
+                className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 text-sm text-slate-700 font-medium focus:border-indigo-400 focus:bg-white outline-none transition-all resize-none"
+                rows={3}
+                dir="rtl"
+              />
+            </div>
+
+            {/* Action buttons */}
+            <div className="space-y-3 pt-2">
+              <div className="flex gap-2">
+                {property.link && (
+                  <a 
+                    href={property.link.startsWith('http') ? property.link : `https://${property.link}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="flex-1 bg-slate-900 text-white text-center py-3 rounded-xl font-black text-sm hover:bg-black transition-all"
+                  >
+                    קישור למודעה
+                  </a>
+                )}
+                {property.phone && (
+                  <a href={`tel:${property.phone}`} className="flex-1 bg-indigo-50 text-indigo-600 text-center py-3 rounded-xl font-black text-sm hover:bg-indigo-100 transition-all">
+                    📞 {property.phone}
+                  </a>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setDetailOpen(false); onEdit && onEdit(property.id); }}
+                  className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-black text-sm hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536M9 11l6-6 3 3-6 6H9v-3z" />
+                  </svg>
+                  עריכה
+                </button>
+                <button
+                  onClick={() => { if(confirm('למחוק את המודעה?')) { setDetailOpen(false); onStatusChange(property.id, 'DELETE'); } }}
+                  className="px-5 py-3 bg-red-50 text-red-500 rounded-xl font-black text-sm hover:bg-red-100 transition-all"
+                >
+                  מחיקה
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* Full-screen image gallery lightbox */}
     {galleryOpen && resolvedGalleryImages.length > 0 && (
@@ -388,7 +500,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
         {/* Main image — pinch-to-zoom + double-tap */}
         <div
           ref={imgContainerRef}
-          className="flex-1 flex items-center justify-center w-full px-4 sm:px-16 overflow-hidden"
+          className="flex-1 flex items-center justify-center w-full overflow-hidden"
           onClick={(e) => e.stopPropagation()}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -399,8 +511,12 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
           <img
             src={resolvedGalleryImages[galleryIndex]}
             alt={`${displayTitle(property)} - ${galleryIndex + 1}`}
-            className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl select-none"
+            className="object-contain select-none"
             style={{
+              maxHeight: '85vh',
+              maxWidth: '100vw',
+              width: 'auto',
+              height: 'auto',
               transform: `scale(${zoomScale}) translate(${zoomTranslate.x / zoomScale}px, ${zoomTranslate.y / zoomScale}px)`,
               transition: pinchRef.current ? 'none' : 'transform 0.2s ease-out',
             }}
