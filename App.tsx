@@ -559,52 +559,29 @@ const App: React.FC = () => {
           </div>
           <div>
             <h1 className="text-lg font-black text-slate-800 leading-none">Apartment Hunter</h1>
-            <div className="flex items-center gap-1.5 mt-1">
-              <div className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`}></div>
-              <span className="text-[9px] text-slate-400 font-bold uppercase">
-                {isSyncing ? `סנכרון: ${syncCode}` : 'מצב מקומי'}
+            {storageUsage && (
+              <span className="text-[9px] text-indigo-400 font-bold mt-1 block">
+                ☁️ {formatBytes(storageUsage.totalBytes)} ({storageUsage.fileCount} קבצים)
               </span>
-              {storageUsage && (
-                <span className="text-[9px] text-indigo-400 font-bold mr-2">
-                  ☁️ {formatBytes(storageUsage.totalBytes)} ({storageUsage.fileCount} קבצים)
-                </span>
-              )}
-            </div>
+            )}
           </div>
         </div>
         
         <div className="flex gap-1.5">
-          <button 
-            onClick={handleSaveToLocal}
-            disabled={isSavingLocal}
-            className="p-2.5 rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all active:scale-90 flex items-center gap-2 disabled:opacity-50"
-            title="שמור מהענן למחשב"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            <span className="hidden sm:block text-[10px] font-black uppercase tracking-wider">{isSavingLocal ? '...' : 'שמור למחשב'}</span>
-          </button>
-
-          <button 
-            onClick={() => setShowMobileLink(true)}
-            className="p-2.5 rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all active:scale-90 flex items-center gap-2"
-            title="פתח בטלפון"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-            </svg>
-            <span className="hidden sm:block text-[10px] font-black uppercase tracking-wider">פתח בנייד</span>
-          </button>
-
-          <button 
-            onClick={handleSyncSetup}
-            className="p-2.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all active:scale-90"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
-          </button>
+          {/* Save to local — only show on dev server, not GitHub Pages */}
+          {!window.location.hostname.includes('github.io') && (
+            <button 
+              onClick={handleSaveToLocal}
+              disabled={isSavingLocal}
+              className="p-2.5 rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all active:scale-90 flex items-center gap-2 disabled:opacity-50"
+              title="שמור מהענן למחשב"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              <span className="hidden sm:block text-[10px] font-black uppercase tracking-wider">{isSavingLocal ? '...' : 'שמור למחשב'}</span>
+            </button>
+          )}
           
           <button 
             onClick={() => setIsAdding(true)}
