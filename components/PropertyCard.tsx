@@ -50,6 +50,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
 
   const mainImage = property.images && property.images.length > 0 ? property.images[0] : null;
   const [resolvedMainImage, setResolvedMainImage] = useState<string | null>(null);
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
 
   // Gallery lightbox state
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -109,6 +110,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
 
   useEffect(() => {
     let active = true;
+    setImageLoadFailed(false);
     const resolve = async () => {
       const img = property.images && property.images.length > 0 ? property.images[0] : null;
       if (!img) { setResolvedMainImage(null); return; }
@@ -118,8 +120,9 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
         const key = img.startsWith('idb://') ? img.replace('idb://', '') : img;
         try {
           const url = await getImageObjectURL(key);
+          console.log('Resolved image for', property.id, ':', key, '→', url?.substring(0, 80));
           if (active) setResolvedMainImage(url);
-        } catch (e) { console.error(e); if (active) setResolvedMainImage(null); }
+        } catch (e) { console.error('Image resolve error:', e); if (active) setResolvedMainImage(null); }
       }
     };
     resolve();
@@ -176,12 +179,20 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
     <>
     <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-xl transition-all group flex flex-col h-full">
       <div className="relative h-64 bg-slate-100 shrink-0 cursor-pointer" onClick={openGallery}>
-        {resolvedMainImage ? (
+        {resolvedMainImage && !imageLoadFailed ? (
           <img 
             src={resolvedMainImage} 
             alt={displayTitle(property)} 
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+            onError={() => { console.error('Image failed to load:', resolvedMainImage?.substring(0, 100)); setImageLoadFailed(true); }}
           />
+        ) : imageLoadFailed ? (
+          <div className="flex flex-col items-center justify-center h-full text-red-400 gap-2 p-4">
+            <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <span className="text-xs text-center">שגיאה בטעינת תמונה</span>
+          </div>
         ) : (
           <div className="flex items-center justify-center h-full text-slate-300">
             <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">

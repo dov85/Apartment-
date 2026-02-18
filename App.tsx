@@ -5,6 +5,7 @@ import PropertyCard from './components/PropertyCard.tsx';
 import MapView from './components/MapView';
 import { saveImageDataUrl, deleteImageKey, getImageObjectURL, saveApartmentsToFile } from './utils/idbImages';
 import { loadApartmentsFromCloud, saveApartmentsToCloud, isServerAvailable, getCloudStorageUsage, formatBytes } from './services/supabaseSync';
+import { compressImageDataUrl } from './utils/compressImage';
 
 const SYNC_SERVICE_URL = 'https://api.keyvalue.xyz'; 
 
@@ -170,8 +171,9 @@ const App: React.FC = () => {
           const file = item.getAsFile();
           if (file) {
             const reader = new FileReader();
-            reader.onload = () => {
-              const dataUrl = reader.result as string;
+            reader.onload = async () => {
+              const raw = reader.result as string;
+              const dataUrl = await compressImageDataUrl(raw);
               setImagePreviews(prev => [...prev, dataUrl]);
               setImageRefs(prev => [...prev, dataUrl]);
             };
@@ -217,8 +219,9 @@ const App: React.FC = () => {
     if (!files) return;
     Array.from(files).forEach(file => {
       const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
+      reader.onload = async () => {
+        const raw = reader.result as string;
+        const dataUrl = await compressImageDataUrl(raw);
         setImagePreviews(prev => [...prev, dataUrl]);
         setImageRefs(prev => [...prev, dataUrl]);
       };
@@ -236,8 +239,9 @@ const App: React.FC = () => {
           const file = item.getAsFile();
           if (file) {
             const reader = new FileReader();
-            reader.onload = () => {
-              const dataUrl = reader.result as string;
+            reader.onload = async () => {
+              const raw = reader.result as string;
+              const dataUrl = await compressImageDataUrl(raw);
               setImagePreviews(prev => [...prev, dataUrl]);
               setImageRefs(prev => [...prev, dataUrl]);
             };
@@ -257,8 +261,9 @@ const App: React.FC = () => {
       Array.from(files).forEach(file => {
         if (file.type.startsWith('image/')) {
           const reader = new FileReader();
-          reader.onload = () => {
-            const dataUrl = reader.result as string;
+          reader.onload = async () => {
+            const raw = reader.result as string;
+            const dataUrl = await compressImageDataUrl(raw);
             setImagePreviews(prev => [...prev, dataUrl]);
             setImageRefs(prev => [...prev, dataUrl]);
           };
@@ -369,11 +374,15 @@ const App: React.FC = () => {
             }
           } catch (e) {
             console.error(`Image ${i}: upload FAILED`, e);
+            alert(`⚠️ העלאת תמונה ${i + 1} נכשלה: ${(e as Error).message}`);
           }
         }
       }
 
       console.log('All images processed. Final refs:', finalImageRefs);
+      if (imageRefs.length > 0 && finalImageRefs.length === 0) {
+        alert('⚠️ כל התמונות נכשלו בהעלאה! נסה שוב.');
+      }
 
       // 3. Build the new property object
       const newProp: Property = {
@@ -437,7 +446,12 @@ const App: React.FC = () => {
         refreshStorageUsage();
       } else {
         console.error('Cloud save FAILED');
+        alert('⚠️ השמירה לענן נכשלה! הנתונים נשמרו מקומית בלבד.');
       }
+
+      // Debug: verify images saved
+      const savedProp = updatedProps.find(p => p.id === (currentEditingId || newProp.id));
+      console.log('Saved property images:', savedProp?.images);
 
       if (syncCode) pushDataToRemote(syncCode, updatedProps);
 
