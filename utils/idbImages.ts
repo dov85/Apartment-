@@ -1,8 +1,11 @@
 /**
  * Image persistence utilities.
  * Primary: saves images as files on disk via /api/images (file ref: "file://<key>")
+ * Cloud:   also uploads to Supabase Storage via /api/supabase/* proxy
  * Fallback: IndexedDB (ref: plain key without prefix — legacy)
  */
+
+import { uploadImageToCloud, deleteImageFromCloud, getPublicImageUrl } from '../services/supabaseSync';
 
 // ── File-based API ─────────────────────────────────────────
 
@@ -31,6 +34,8 @@ export async function saveImageDataUrl(dataUrl: string): Promise<string> {
   // Try file-based first
   try {
     const key = await saveImageToFile(dataUrl);
+    // Also upload to cloud (non-blocking)
+    uploadImageToCloud(dataUrl).catch(e => console.warn('Cloud image upload failed:', e));
     return key; // stored on disk
   } catch (e) {
     console.warn('File API unavailable, falling back to IndexedDB', e);
@@ -51,10 +56,14 @@ export async function saveImageDataUrl(dataUrl: string): Promise<string> {
 
 /**
  * Resolve an image key to a displayable URL.
+ * - "cloud://<key>" → Supabase public URL
  * - "file://<key>" or bare key without "idb-" prefix → served from /api/images/<key>
  * - "idb-..." → IndexedDB blob
  */
 export async function getImageObjectURL(key: string): Promise<string | null> {
+  if (key.startsWith('cloud://')) {
+    return getPublicImageUrl(key.replace('cloud://', ''));
+  }
   if (key.startsWith('file://')) {
     return getFileImageURL(key.replace('file://', ''));
   }
@@ -80,13 +89,18 @@ export async function getImageObjectURL(key: string): Promise<string | null> {
 }
 
 export async function deleteImageKey(key: string): Promise<void> {
+  if (key.startsWith('cloud://')) {
+    await deleteImageFromCloud(key.replace('cloud://', ''));
+    return;
+  }
   if (key.startsWith('file://')) {
     await deleteFileImage(key.replace('file://', ''));
     return;
   }
   if (!key.startsWith('idb-')) {
-    // new file key
+    // new file key — also try deleting from cloud
     await deleteFileImage(key);
+    deleteImageFromCloud(key).catch(() => {});
     return;
   }
   // Legacy IDB

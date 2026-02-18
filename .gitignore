@@ -25,3 +25,4 @@ dist-ssr
 
 # User data (saved locally)
 data/
+setup-supabase.cjs

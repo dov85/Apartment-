@@ -4,6 +4,7 @@ import { Property, PropertyStatus } from './types.ts';
 import PropertyCard from './components/PropertyCard.tsx';
 import MapView from './components/MapView';
 import { saveImageDataUrl, deleteImageKey, getImageObjectURL, loadApartmentsFromFile, saveApartmentsToFile } from './utils/idbImages';
+import { loadApartmentsFromCloud, saveApartmentsToCloud, isCloudAvailable } from './services/supabaseSync';
 
 const SYNC_SERVICE_URL = 'https://api.keyvalue.xyz'; 
 
@@ -32,15 +33,24 @@ const App: React.FC = () => {
   const modalOverlayRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    // Load from file API first, fallback to localStorage
+    // Load from file API first, then cloud, then localStorage
     (async () => {
       let data: any[] = [];
       const fileData = await loadApartmentsFromFile();
       if (fileData && fileData.length > 0) {
         data = fileData;
       } else {
-        const saved = localStorage.getItem('apartments');
-        if (saved) data = JSON.parse(saved);
+        // Try loading from Supabase cloud
+        const cloudData = await loadApartmentsFromCloud();
+        if (cloudData && cloudData.length > 0) {
+          data = cloudData;
+          // Save cloud data locally so next load is faster
+          saveApartmentsToFile(data);
+          console.log('Loaded from Supabase cloud and saved locally');
+        } else {
+          const saved = localStorage.getItem('apartments');
+          if (saved) data = JSON.parse(saved);
+        }
       }
 
       // Cleanup: remove broken idb:// refs whose blobs no longer exist in IndexedDB
@@ -167,6 +177,11 @@ const App: React.FC = () => {
     saveApartmentsToFile(newProps).then(ok => {
       if (ok) console.log('Saved to data/apartments.json');
       else console.warn('File save failed, using localStorage only');
+    });
+    // Sync to Supabase cloud (non-blocking)
+    saveApartmentsToCloud(newProps).then(ok => {
+      if (ok) console.log('Synced to Supabase cloud ☁️');
+      else console.warn('Cloud sync failed (will retry next save)');
     });
     // Also save to localStorage as fallback
     try {

@@ -1,12 +1,54 @@
 /**
- * Vite server plugin that adds REST API endpoints for file-based persistence.
- * Data is saved to the `data/` directory inside the project:
- *   data/apartments.json   – listing metadata
- *   data/images/<key>.bin  – image blobs
+ * Vite server plugin that adds REST API endpoints for:
+ * 1. File-based local persistence (data/ folder)
+ * 2. Supabase Storage proxy (keeps service_role key on server)
+ *
+ * Local:     data/apartments.json, data/images/<key>
+ * Supabase:  apartment-images bucket → data/apartments.json, images/<key>
  */
 import fs from 'fs';
 import path from 'path';
 import type { Plugin } from 'vite';
+
+// ── Supabase config ────────────────────────────────────────
+const SUPABASE_URL = 'https://axmjuqxyekfyxrjftkcr.supabase.co';
+const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4bWp1cXh5ZWtmeXhyamZ0a2NyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTQwMjY1NSwiZXhwIjoyMDg2OTc4NjU1fQ.yzQ8beCXNPodmffyVxg-oqmW-ks3KF4u4eGuGHPc_Ts';
+const SB_BUCKET = 'apartment-images';
+
+/** Upload a Buffer to Supabase Storage */
+async function sbUpload(storagePath: string, buf: Buffer, contentType: string): Promise<boolean> {
+  const url = `${SUPABASE_URL}/storage/v1/object/${SB_BUCKET}/${storagePath}`;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Content-Type': contentType,
+        'x-upsert': 'true',          // overwrite if exists
+      },
+      body: new Uint8Array(buf),
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
+/** Delete a file from Supabase Storage */
+async function sbDelete(storagePath: string): Promise<boolean> {
+  const url = `${SUPABASE_URL}/storage/v1/object/${SB_BUCKET}`;
+  try {
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ prefixes: [storagePath] }),
+    });
+    return res.ok;
+  } catch { return false; }
+}
 
 const DATA_DIR = path.resolve(__dirname, '..', 'data');
 const IMAGES_DIR = path.join(DATA_DIR, 'images');
@@ -126,6 +168,69 @@ export default function apiPlugin(): Plugin {
             res.statusCode = 500;
             res.end(JSON.stringify({ error: e.message }));
           }
+          return;
+        }
+
+        // ══════════════════════════════════════════════════════
+        // ═══  SUPABASE PROXY ENDPOINTS  ═══════════════════════
+        // ══════════════════════════════════════════════════════
+
+        // ── GET /api/supabase/status ─────────────────────────
+        if (url === '/api/supabase/status' && req.method === 'GET') {
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ ok: true, bucket: SB_BUCKET }));
+          return;
+        }
+
+        // ── POST /api/supabase/data  (save apartments.json) ─
+        if (url === '/api/supabase/data' && req.method === 'POST') {
+          try {
+            const body = await collectBody(req);
+            const ok = await sbUpload('data/apartments.json', body, 'application/json');
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ ok }));
+          } catch (e: any) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: e.message }));
+          }
+          return;
+        }
+
+        // ── POST /api/supabase/image  (upload image) ────────
+        if (url === '/api/supabase/image' && req.method === 'POST') {
+          try {
+            const body = await collectBody(req);
+            const { dataUrl } = JSON.parse(body.toString('utf-8'));
+            const match = (dataUrl as string).match(/^data:(image\/[\w+]+);base64,(.+)$/);
+            if (!match) {
+              res.statusCode = 400;
+              res.end(JSON.stringify({ error: 'Invalid data URL' }));
+              return;
+            }
+            const ext = match[1].split('/')[1] || 'png';
+            const buf = Buffer.from(match[2], 'base64');
+            const key = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9) + '.' + ext;
+            const ok = await sbUpload(`images/${key}`, buf, match[1]);
+            if (!ok) {
+              res.statusCode = 502;
+              res.end(JSON.stringify({ error: 'Supabase upload failed' }));
+              return;
+            }
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ key }));
+          } catch (e: any) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: e.message }));
+          }
+          return;
+        }
+
+        // ── DELETE /api/supabase/image/<key> ─────────────────
+        if (url.startsWith('/api/supabase/image/') && req.method === 'DELETE') {
+          const key = decodeURIComponent(url.replace('/api/supabase/image/', ''));
+          await sbDelete(`images/${key}`);
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ ok: true }));
           return;
         }
 
