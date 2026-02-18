@@ -100,6 +100,101 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
   // Synchronous fallback: compute Supabase URL directly for simple keys
   const fallbackImageUrl = directSupabaseUrl(currentImage);
 
+  // Card image pinch-to-zoom state
+  const [cardZoom, setCardZoom] = useState(1);
+  const [cardZoomTranslate, setCardZoomTranslate] = useState({ x: 0, y: 0 });
+  const cardPinchRef = useRef<{ startDist: number; startScale: number } | null>(null);
+  const cardPanRef = useRef<{ lastX: number; lastY: number } | null>(null);
+  const cardSwipeRef = useRef<{ startX: number; startY: number; startTime: number } | null>(null);
+  const cardImgContainerRef = useRef<HTMLDivElement>(null);
+
+  // Reset card zoom when changing image
+  useEffect(() => { setCardZoom(1); setCardZoomTranslate({ x: 0, y: 0 }); }, [safeCardIndex]);
+
+  const cardHandleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      cardPinchRef.current = { startDist: getTouchDist(e.touches[0], e.touches[1]), startScale: cardZoom };
+      cardSwipeRef.current = null;
+    } else if (e.touches.length === 1) {
+      if (cardZoom > 1) {
+        cardPanRef.current = { lastX: e.touches[0].clientX, lastY: e.touches[0].clientY };
+      } else {
+        cardSwipeRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, startTime: Date.now() };
+      }
+    }
+  }, [cardZoom]);
+
+  const cardHandleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2 && cardPinchRef.current) {
+      e.preventDefault();
+      const dist = getTouchDist(e.touches[0], e.touches[1]);
+      const newScale = Math.min(4, Math.max(1, cardPinchRef.current.startScale * (dist / cardPinchRef.current.startDist)));
+      setCardZoom(newScale);
+      if (newScale <= 1) setCardZoomTranslate({ x: 0, y: 0 });
+    } else if (e.touches.length === 1 && cardPanRef.current && cardZoom > 1) {
+      const dx = e.touches[0].clientX - cardPanRef.current.lastX;
+      const dy = e.touches[0].clientY - cardPanRef.current.lastY;
+      cardPanRef.current = { lastX: e.touches[0].clientX, lastY: e.touches[0].clientY };
+      setCardZoomTranslate(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+    } else if (e.touches.length === 1 && cardSwipeRef.current) {
+      // Mark as swiping if moved enough horizontally
+      const dx = Math.abs(e.touches[0].clientX - cardSwipeRef.current.startX);
+      if (dx > 10) {
+        // prevent vertical scroll while swiping
+        e.preventDefault();
+      }
+    }
+  }, [cardZoom]);
+
+  const cardHandleTouchEnd = useCallback((e: React.TouchEvent) => {
+    cardPinchRef.current = null;
+    cardPanRef.current = null;
+    if (cardSwipeRef.current && cardZoom <= 1 && totalImages > 1) {
+      const touch = e.changedTouches[0];
+      const dx = touch.clientX - cardSwipeRef.current.startX;
+      const dy = touch.clientY - cardSwipeRef.current.startY;
+      const dt = Date.now() - cardSwipeRef.current.startTime;
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+      if (absDx > 40 && absDx > absDy * 1.5 && dt < 500) {
+        // Swipe detected
+        if (dx > 0) {
+          // Swipe right → previous image (RTL: left arrow)
+          setCardImageIndex(i => Math.max(0, i - 1));
+        } else {
+          // Swipe left → next image
+          setCardImageIndex(i => Math.min(totalImages - 1, i + 1));
+        }
+        cardSwipeRef.current = null;
+        return;
+      }
+      // Tap (no significant movement)
+      if (absDx < 15 && absDy < 15 && dt < 300 && cardImgContainerRef.current) {
+        const rect = cardImgContainerRef.current.getBoundingClientRect();
+        const tapX = touch.clientX - rect.left;
+        const halfWidth = rect.width / 2;
+        if (tapX < halfWidth) {
+          // Tap left side → previous
+          if (safeCardIndex > 0) { setCardImageIndex(i => i - 1); cardSwipeRef.current = null; return; }
+        } else {
+          // Tap right side → next
+          if (safeCardIndex < totalImages - 1) { setCardImageIndex(i => i + 1); cardSwipeRef.current = null; return; }
+        }
+      }
+    }
+    cardSwipeRef.current = null;
+  }, [cardZoom, totalImages, safeCardIndex]);
+
+  const cardHandleDoubleClick = useCallback(() => {
+    if (cardZoom > 1) {
+      setCardZoom(1);
+      setCardZoomTranslate({ x: 0, y: 0 });
+    } else {
+      setCardZoom(2.5);
+    }
+  }, [cardZoom]);
+
   // Gallery lightbox state
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
@@ -238,12 +333,26 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
   return (
     <>
     <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-xl transition-all group flex flex-col h-full">
-      <div className="relative h-64 bg-slate-100 shrink-0 cursor-pointer" onClick={openGallery}>
+      <div
+        ref={cardImgContainerRef}
+        className="relative h-64 bg-slate-100 shrink-0 cursor-pointer overflow-hidden"
+        onClick={cardZoom > 1 ? undefined : openGallery}
+        onTouchStart={totalImages > 0 ? cardHandleTouchStart : undefined}
+        onTouchMove={totalImages > 0 ? cardHandleTouchMove : undefined}
+        onTouchEnd={totalImages > 0 ? cardHandleTouchEnd : undefined}
+        onDoubleClick={totalImages > 0 ? cardHandleDoubleClick : undefined}
+        style={{ touchAction: cardZoom > 1 ? 'none' : (totalImages > 1 ? 'pan-y' : 'auto') }}
+      >
         {(resolvedMainImage || fallbackImageUrl) && !imageLoadFailed ? (
           <img 
             src={resolvedMainImage || fallbackImageUrl!} 
             alt={displayTitle(property)} 
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 select-none"
+            draggable={false}
+            style={cardZoom > 1 ? {
+              transform: `scale(${cardZoom}) translate(${cardZoomTranslate.x / cardZoom}px, ${cardZoomTranslate.y / cardZoom}px)`,
+              transition: cardPinchRef.current ? 'none' : 'transform 0.2s ease-out',
+            } : undefined}
             onError={() => { 
               console.error('Image failed to load:', resolvedMainImage?.substring(0, 100)); 
               if (imageRetryCount === 0 && fallbackImageUrl && resolvedMainImage !== fallbackImageUrl) {
