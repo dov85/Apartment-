@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Property, PropertyStatus } from './types.ts';
 import PropertyCard from './components/PropertyCard.tsx';
 import MapView from './components/MapView';
-import { saveImageDataUrl, deleteImageKey } from './utils/idbImages';
+import { saveImageDataUrl, deleteImageKey, getImageObjectURL } from './utils/idbImages';
 
 const SYNC_SERVICE_URL = 'https://api.keyvalue.xyz'; 
 
@@ -17,7 +17,8 @@ const App: React.FC = () => {
   const [copySuccess, setCopySuccess] = useState(false);
   
   // Manual form states
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);  // display URLs (data: or blob:)
+  const [imageRefs, setImageRefs] = useState<string[]>([]);          // storage refs (idb:// or data:)
   const [street, setStreet] = useState('');
   const [city, setCity] = useState('');
   const [title, setTitle] = useState('');
@@ -123,42 +124,38 @@ const App: React.FC = () => {
   const handleImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-
-    const MAX_IMAGES = 5;
-    const remaining = Math.max(0, MAX_IMAGES - imagePreviews.length);
-    const toAdd = Array.from(files).slice(0, remaining);
-    if (toAdd.length < files.length) alert(`ניתן להעלות עד ${MAX_IMAGES} תמונות בלבד.`);
-    toAdd.forEach(file => {
+    Array.from(files).forEach(file => {
       const reader = new FileReader();
       reader.onload = () => {
-        setImagePreviews(prev => [...prev, reader.result as string]);
+        const dataUrl = reader.result as string;
+        setImagePreviews(prev => [...prev, dataUrl]);
+        setImageRefs(prev => [...prev, dataUrl]);
       };
       reader.readAsDataURL(file);
     });
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
-    const MAX_IMAGES = 5;
     const items = e.clipboardData?.items;
     if (items) {
       let handled = false;
-      const remaining = Math.max(0, MAX_IMAGES - imagePreviews.length);
       let added = 0;
       Array.from(items).forEach((item) => {
-        if (added >= remaining) return;
         if (item.kind === 'file' && item.type.startsWith('image/')) {
           const file = item.getAsFile();
           if (file) {
             const reader = new FileReader();
-            reader.onload = () => setImagePreviews(prev => [...prev, reader.result as string]);
+            reader.onload = () => {
+              const dataUrl = reader.result as string;
+              setImagePreviews(prev => [...prev, dataUrl]);
+              setImageRefs(prev => [...prev, dataUrl]);
+            };
             reader.readAsDataURL(file);
             handled = true;
             added += 1;
           }
         }
       });
-      if (added === 0 && items.length > 0) alert(`לא נותרו מקומות להעלאת תמונות (מקסימום ${MAX_IMAGES}).`);
-      if (added < items.length && added > 0) alert(`מוגבל ל-${MAX_IMAGES} תמונות, חלק מהתמונות לא הוספו.`);
       if (handled) e.preventDefault();
       return;
     }
@@ -166,13 +163,14 @@ const App: React.FC = () => {
     // Fallback: check files list
     const files = (e.nativeEvent as any).clipboardData?.files as FileList | undefined;
     if (files && files.length) {
-      const remaining = Math.max(0, MAX_IMAGES - imagePreviews.length);
-      const toAdd = Array.from(files).slice(0, remaining);
-      if (toAdd.length < files.length) alert(`מוגבל ל-${MAX_IMAGES} תמונות, חלק מהתמונות לא הוספו.`);
-      toAdd.forEach(file => {
+      Array.from(files).forEach(file => {
         if (file.type.startsWith('image/')) {
           const reader = new FileReader();
-          reader.onload = () => setImagePreviews(prev => [...prev, reader.result as string]);
+          reader.onload = () => {
+            const dataUrl = reader.result as string;
+            setImagePreviews(prev => [...prev, dataUrl]);
+            setImageRefs(prev => [...prev, dataUrl]);
+          };
           reader.readAsDataURL(file);
         }
       });
@@ -180,10 +178,14 @@ const App: React.FC = () => {
   };
 
   const removeImage = (index: number) => {
+    // Revoke blob URL if applicable
+    const displayUrl = imagePreviews[index];
+    if (displayUrl && displayUrl.startsWith('blob:')) URL.revokeObjectURL(displayUrl);
     setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    setImageRefs(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleEdit = (id: string) => {
+  const handleEdit = async (id: string) => {
     console.log('handleEdit:', id);
     const prop = properties.find(p => p.id === id);
     if (!prop) return;
@@ -195,7 +197,25 @@ const App: React.FC = () => {
     setRooms(prop.rooms || '');
     setPhone(prop.phone || '');
     setLink(prop.link || '');
-    setImagePreviews(prop.images || []);
+
+    // Resolve idb:// keys to blob URLs for display, keep original refs
+    const refs = prop.images || [];
+    const displayUrls: string[] = [];
+    for (const ref of refs) {
+      if (typeof ref === 'string' && ref.startsWith('idb://')) {
+        try {
+          const blobUrl = await getImageObjectURL(ref.replace('idb://', ''));
+          displayUrls.push(blobUrl || '');
+        } catch (e) {
+          console.error('Failed to resolve idb image:', e);
+          displayUrls.push('');
+        }
+      } else {
+        displayUrls.push(ref as string);
+      }
+    }
+    setImagePreviews(displayUrls.filter(Boolean));
+    setImageRefs(refs.filter((_, i) => displayUrls[i] !== ''));
     setIsAdding(true);
   };
 
@@ -209,7 +229,7 @@ const App: React.FC = () => {
       price: parseInt(price) || 0,
       phone: phone || '',
       rooms: rooms || '',
-      images: imagePreviews,
+      images: imageRefs,
       link: link || '',
       status: PropertyStatus.NEW,
       createdAt: Date.now(),
@@ -261,7 +281,10 @@ const App: React.FC = () => {
 
   const resetForm = () => {
     setIsAdding(false);
+    // Revoke any blob URLs created for edit previews
+    imagePreviews.forEach(url => { if (url && url.startsWith('blob:')) URL.revokeObjectURL(url); });
     setImagePreviews([]);
+    setImageRefs([]);
     setTitle('');
     setStreet('');
     setCity('');
