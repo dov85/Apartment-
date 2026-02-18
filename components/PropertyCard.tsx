@@ -288,11 +288,10 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
           </span>
         </div>
 
-        {/* Reminder badge on image */}
-        {reminderStatus !== 'none' && (
+        {/* Reminder badge on image — hidden once date has passed */}
+        {(reminderStatus === 'due' || reminderStatus === 'upcoming') && (
           <div className={`absolute top-4 left-4 px-3 py-2 rounded-2xl text-xs font-black shadow-lg backdrop-blur-md flex items-center gap-1 ${
             reminderStatus === 'due' ? 'bg-red-500/90 text-white animate-pulse' :
-            reminderStatus === 'past' ? 'bg-orange-500/90 text-white' :
             'bg-amber-400/90 text-amber-900'
           }`}>
             🔔 {formatReminderDate(property.reminderDate!)}
@@ -368,11 +367,10 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
           <p className="text-xs text-slate-400 truncate max-w-full mb-3">📝 {localNotes}</p>
         )}
 
-        {/* Reminder section */}
-        {reminderStatus !== 'none' && !showReminderForm && (
+        {/* Reminder section — hidden once date has passed */}
+        {(reminderStatus === 'due' || reminderStatus === 'upcoming') && !showReminderForm && (
           <div className={`flex items-center gap-2 mb-3 p-2.5 rounded-xl text-xs font-bold ${
             reminderStatus === 'due' ? 'bg-red-50 text-red-700 border border-red-200' :
-            reminderStatus === 'past' ? 'bg-orange-50 text-orange-700 border border-orange-200' :
             'bg-amber-50 text-amber-700 border border-amber-200'
           }`}>
             <span>🔔</span>
@@ -595,21 +593,17 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
             {/* Reminder in detail modal */}
             <div>
               <span className="block text-[10px] font-black text-slate-400 uppercase mb-2">🔔 תזכורת</span>
-              {property.reminderDate ? (
+              {property.reminderDate && reminderStatus !== 'past' ? (
                 <div className={`p-3 rounded-xl border-2 ${
                   reminderStatus === 'due' ? 'bg-red-50 border-red-200' :
-                  reminderStatus === 'past' ? 'bg-orange-50 border-orange-200' :
-                  reminderStatus === 'upcoming' ? 'bg-amber-50 border-amber-200' :
-                  'bg-slate-50 border-slate-100'
+                  'bg-amber-50 border-amber-200'
                 }`}>
                   <div className="flex items-center justify-between mb-1">
                     <span className={`text-sm font-black ${
-                      reminderStatus === 'due' ? 'text-red-600' :
-                      reminderStatus === 'past' ? 'text-orange-600' :
-                      'text-amber-600'
+                      reminderStatus === 'due' ? 'text-red-600' : 'text-amber-600'
                     }`}>{formatReminderDate(property.reminderDate)}</span>
                     <button
-                      onClick={() => onUpdate({ ...property, reminderDate: undefined, reminderText: undefined })}
+                      onClick={() => onUpdate && onUpdate(property.id, { reminderDate: undefined, reminderText: undefined })}
                       className="text-slate-400 hover:text-red-500 text-xs font-bold"
                     >✕ הסר</button>
                   </div>
@@ -630,7 +624,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
                     <button
                       onClick={() => {
                         if (reminderDateInput) {
-                          onUpdate({ ...property, reminderDate: reminderDateInput, reminderText: reminderTextInput || undefined });
+                          onUpdate && onUpdate(property.id, { reminderDate: reminderDateInput, reminderText: reminderTextInput || undefined });
                           setReminderDateInput('');
                           setReminderTextInput('');
                         }
