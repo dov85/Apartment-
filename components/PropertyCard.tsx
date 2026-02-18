@@ -88,13 +88,17 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
     }
   };
 
-  const mainImage = property.images && property.images.length > 0 ? property.images[0] : null;
+  const [cardImageIndex, setCardImageIndex] = useState(0);
+  const totalImages = property.images?.length || 0;
+  // Clamp index if images array shrinks
+  const safeCardIndex = totalImages > 0 ? Math.min(cardImageIndex, totalImages - 1) : 0;
+  const currentImage = totalImages > safeCardIndex ? property.images![safeCardIndex] : null;
   const [resolvedMainImage, setResolvedMainImage] = useState<string | null>(null);
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const [imageRetryCount, setImageRetryCount] = useState(0);
 
   // Synchronous fallback: compute Supabase URL directly for simple keys
-  const fallbackImageUrl = directSupabaseUrl(mainImage);
+  const fallbackImageUrl = directSupabaseUrl(currentImage);
 
   // Gallery lightbox state
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -157,7 +161,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
     setImageLoadFailed(false);
     setImageRetryCount(0);
     const resolve = async () => {
-      const img = property.images && property.images.length > 0 ? property.images[0] : null;
+      const img = currentImage;
       if (!img) { setResolvedMainImage(null); return; }
       if (typeof img === 'string' && img.startsWith('data:')) {
         if (active) setResolvedMainImage(img);
@@ -165,14 +169,13 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
         const key = img.startsWith('idb://') ? img.replace('idb://', '') : img;
         try {
           const url = await getImageObjectURL(key);
-          console.log('Resolved image for', property.id, ':', key, '→', url?.substring(0, 80));
           if (active) setResolvedMainImage(url);
         } catch (e) { console.error('Image resolve error:', e); if (active) setResolvedMainImage(null); }
       }
     };
     resolve();
     return () => { active = false; if (resolvedMainImage && resolvedMainImage.startsWith('blob:')) URL.revokeObjectURL(resolvedMainImage); };
-  }, [property.images]);
+  }, [property.images, safeCardIndex]);
 
   // Resolve all images when gallery opens
   useEffect(() => {
@@ -218,8 +221,18 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
 
   const openGallery = () => {
     if (!property.images || property.images.length === 0) return;
-    setGalleryIndex(0);
+    setGalleryIndex(safeCardIndex);
     setGalleryOpen(true);
+  };
+
+  const handleSetAsPrimary = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!property.images || safeCardIndex === 0) return;
+    const newImages = [...property.images];
+    const [moved] = newImages.splice(safeCardIndex, 1);
+    newImages.unshift(moved);
+    onUpdate && onUpdate(property.id, { images: newImages });
+    setCardImageIndex(0);
   };
 
   return (
@@ -271,10 +284,50 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
           </div>
         )}
         
-        {property.images && property.images.length > 1 && (
-          <div className="absolute bottom-4 left-4 bg-black/50 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded-lg">
-            +{property.images.length - 1} תמונות נוספות
+        {/* Image navigation arrows */}
+        {totalImages > 1 && (
+          <>
+            {safeCardIndex > 0 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setCardImageIndex(i => Math.max(0, i - 1)); }}
+                className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-black/40 hover:bg-black/60 text-white w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
+              </button>
+            )}
+            {safeCardIndex < totalImages - 1 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setCardImageIndex(i => Math.min(totalImages - 1, i + 1)); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-black/40 hover:bg-black/60 text-white w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg>
+              </button>
+            )}
+          </>
+        )}
+
+        {/* Image counter + dots */}
+        {totalImages > 1 && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
+            {Array.from({ length: totalImages }, (_, i) => (
+              <button
+                key={i}
+                onClick={(e) => { e.stopPropagation(); setCardImageIndex(i); }}
+                className={`rounded-full transition-all ${i === safeCardIndex ? 'w-2.5 h-2.5 bg-white shadow-lg' : 'w-1.5 h-1.5 bg-white/50 hover:bg-white/80'}`}
+              />
+            ))}
           </div>
+        )}
+
+        {/* Set as primary image */}
+        {totalImages > 1 && safeCardIndex > 0 && (
+          <button
+            onClick={handleSetAsPrimary}
+            className="absolute bottom-4 right-4 z-10 bg-black/50 hover:bg-black/70 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 flex items-center gap-1"
+            title="קבע כתמונה ראשית"
+          >
+            ★ ראשית
+          </button>
         )}
 
         <div className="absolute top-4 right-4 flex items-center gap-2">
