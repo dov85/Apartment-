@@ -333,109 +333,121 @@ const App: React.FC = () => {
 
   const [isSavingProperty, setIsSavingProperty] = useState(false);
 
-  const handleFinalSave = () => {
-    console.log('handleFinalSave - editingId:', editingId, 'imageRefs:', imageRefs.length);
+  const handleFinalSave = async () => {
+    console.log('handleFinalSave - editingId:', editingId, 'imageRefs:', imageRefs.length, 'imageRefs:', imageRefs.map(r => r.substring(0, 40)));
     const currentEditingId = editingId;
-    const newPropBase = {
-      id: Date.now().toString(),
-      title: title || '',
-      street: street || '',
-      city: city || '',
-      price: parseInt(price) || 0,
-      phone: phone || '',
-      rooms: rooms || '',
-      floor: floor ? parseInt(floor) : undefined,
-      hasElevator,
-      hasBalcony,
-      hasParking,
-      hasBrokerFee,
-      rating: rating || undefined,
-      notes: notes || undefined,
-      images: [...imageRefs],  // snapshot copy
-      link: link || '',
-      status: currentEditingId ? formStatus : PropertyStatus.NEW,
-      createdAt: Date.now(),
-    } as any;
+    // Snapshot current properties so we have a stable reference
+    const currentProperties = [...properties];
 
     setIsSavingProperty(true);
 
-    // try to geocode, save images to disk, then persist listing
-    (async () => {
-      try {
-        const coords = await geocodeAddress(newPropBase.street, newPropBase.city);
-        if (coords) {
-          newPropBase.lat = coords.lat;
-          newPropBase.lon = coords.lon;
-        }
+    try {
+      // 1. Geocode
+      let lat: number | undefined;
+      let lon: number | undefined;
+      const coords = await geocodeAddress(street, city);
+      if (coords) { lat = coords.lat; lon = coords.lon; }
 
-        // process images: convert data URLs to file/IDB keys, keep existing refs
-        const finalImageRefs: string[] = [];
-        for (const img of newPropBase.images || []) {
-          if (typeof img === 'string' && (img.startsWith('idb://') || img.startsWith('file://') || (!img.startsWith('data:') && !img.startsWith('blob:')))) {
-            // Already a stored reference — keep it
-            finalImageRefs.push(img);
-            console.log('Keeping existing image ref:', img);
-          } else if (typeof img === 'string' && (img.startsWith('data:') || img.startsWith('blob:'))) {
-            try {
-              const key = await saveImageDataUrl(img);
-              finalImageRefs.push(key);
-              console.log('Uploaded new image, key:', key);
-            } catch (e) {
-              console.error('saveImageDataUrl failed for image', e);
-            }
-          }
-        }
+      // 2. Upload ALL new images to Supabase cloud
+      const finalImageRefs: string[] = [];
+      for (let i = 0; i < imageRefs.length; i++) {
+        const img = imageRefs[i];
+        if (!img) continue;
 
-        console.log('Final image refs:', finalImageRefs);
-        const newProp: Property = { ...newPropBase, images: finalImageRefs } as Property;
-
-        // Use functional update to get the LATEST properties state
-        let updatedProps: Property[] = [];
-        setProperties(prev => {
-          if (currentEditingId) {
-            // delete any old images that were removed
-            const existing = prev.find(p => p.id === currentEditingId);
-            const oldImgs: string[] = existing?.images || [];
-            const newImgSet = new Set(newProp.images);
-            const toDelete = oldImgs.filter(i => i && !newImgSet.has(i) && !i.startsWith('data:') && !i.startsWith('blob:'));
-            // Fire-and-forget image deletion
-            for (const d of toDelete) {
-              const cleanKey = d.startsWith('idb://') ? d.replace('idb://', '') : d;
-              deleteImageKey(cleanKey).catch(e => console.error('deleteImageKey failed', e));
-            }
-            updatedProps = prev.map(p => p.id === currentEditingId ? { ...p, ...newProp, id: currentEditingId } : p);
-          } else {
-            updatedProps = [newProp, ...prev];
-          }
-          return updatedProps;
-        });
-
-        // Wait for state to settle, then persist
-        // We need a small delay to ensure setProperties has flushed
-        await new Promise(r => setTimeout(r, 50));
-
-        // Save to localStorage + cloud
-        console.log('Saving', updatedProps.length, 'properties with images:', updatedProps.map(p => p.images?.length || 0));
-        try {
-          localStorage.setItem('apartments', JSON.stringify(updatedProps));
-        } catch (err) {
-          console.error('localStorage save failed:', err);
-        }
-        const cloudOk = await saveApartmentsToCloud(updatedProps);
-        if (cloudOk) {
-          console.log('Saved to Supabase cloud ☁️');
-          refreshStorageUsage();
+        if (typeof img === 'string' && !img.startsWith('data:') && !img.startsWith('blob:')) {
+          // Already a stored cloud/file/idb reference — keep it
+          finalImageRefs.push(img);
+          console.log(`Image ${i}: keeping existing ref`, img);
         } else {
-          console.error('Cloud save FAILED — data saved to localStorage only');
+          // New image (data: or blob:) — upload to Supabase
+          console.log(`Image ${i}: uploading new image (${img.substring(0, 30)}..., length=${img.length})`);
+          try {
+            const key = await saveImageDataUrl(img);
+            if (key) {
+              finalImageRefs.push(key);
+              console.log(`Image ${i}: uploaded OK, key=${key}`);
+            } else {
+              console.error(`Image ${i}: upload returned empty key`);
+            }
+          } catch (e) {
+            console.error(`Image ${i}: upload FAILED`, e);
+          }
         }
-        if (syncCode) pushDataToRemote(syncCode, updatedProps);
-      } catch (e) {
-        console.error('handleFinalSave error:', e);
-      } finally {
-        setIsSavingProperty(false);
-        resetForm();
       }
-    })();
+
+      console.log('All images processed. Final refs:', finalImageRefs);
+
+      // 3. Build the new property object
+      const newProp: Property = {
+        id: currentEditingId || Date.now().toString(),
+        title: title || '',
+        street: street || '',
+        city: city || '',
+        price: parseInt(price) || 0,
+        phone: phone || '',
+        rooms: rooms || '',
+        floor: floor ? parseInt(floor) : undefined,
+        hasElevator,
+        hasBalcony,
+        hasParking,
+        hasBrokerFee,
+        rating: rating || undefined,
+        notes: notes || undefined,
+        images: finalImageRefs,
+        link: link || '',
+        status: currentEditingId ? formStatus : PropertyStatus.NEW,
+        createdAt: Date.now(),
+        lat,
+        lon,
+      } as Property;
+
+      // 4. Compute the updated properties array
+      let updatedProps: Property[];
+      if (currentEditingId) {
+        // Delete old images that were removed
+        const existing = currentProperties.find(p => p.id === currentEditingId);
+        const oldImgs: string[] = existing?.images || [];
+        const newImgSet = new Set(finalImageRefs);
+        const toDelete = oldImgs.filter(i => i && !newImgSet.has(i) && !i.startsWith('data:') && !i.startsWith('blob:'));
+        for (const d of toDelete) {
+          const cleanKey = d.startsWith('idb://') ? d.replace('idb://', '') : d;
+          deleteImageKey(cleanKey).catch(e => console.error('deleteImageKey failed', e));
+        }
+        updatedProps = currentProperties.map(p => p.id === currentEditingId ? { ...p, ...newProp } : p);
+      } else {
+        updatedProps = [newProp, ...currentProperties];
+      }
+
+      // 5. Update React state
+      setProperties(updatedProps);
+
+      // 6. Save to localStorage (sync, fast)
+      console.log('Persisting', updatedProps.length, 'properties, images per prop:', updatedProps.map(p => p.images?.length || 0));
+      try {
+        localStorage.setItem('apartments', JSON.stringify(updatedProps));
+        console.log('Saved to localStorage ✓');
+      } catch (err) {
+        console.error('localStorage save failed:', err);
+      }
+
+      // 7. Save to Supabase cloud
+      const cloudOk = await saveApartmentsToCloud(updatedProps);
+      if (cloudOk) {
+        console.log('Saved to Supabase cloud ☁️ ✓');
+        refreshStorageUsage();
+      } else {
+        console.error('Cloud save FAILED');
+      }
+
+      if (syncCode) pushDataToRemote(syncCode, updatedProps);
+
+    } catch (e) {
+      console.error('handleFinalSave error:', e);
+      alert('שגיאה בשמירה: ' + (e as Error).message);
+    } finally {
+      setIsSavingProperty(false);
+      resetForm();
+    }
   };
 
   const resetForm = () => {
