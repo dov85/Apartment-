@@ -188,3 +188,48 @@ export async function deleteImageFromCloud(key: string): Promise<void> {
 export async function isCloudAvailable(): Promise<boolean> {
   return true;
 }
+
+/**
+ * Get total storage usage in the Supabase bucket.
+ * Returns { totalBytes, fileCount }.
+ */
+export async function getCloudStorageUsage(): Promise<{ totalBytes: number; fileCount: number }> {
+  let totalBytes = 0;
+  let fileCount = 0;
+
+  const listFolder = async (prefix: string) => {
+    const url = `${SUPABASE_URL}/storage/v1/object/list/${BUCKET}`;
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          apikey: SERVICE_KEY,
+          Authorization: `Bearer ${SERVICE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prefix, limit: 10000 }),
+      });
+      if (!res.ok) return;
+      const items: any[] = await res.json();
+      for (const item of items) {
+        if (item.id) {
+          // It's a file
+          totalBytes += item.metadata?.size || 0;
+          fileCount++;
+        }
+      }
+    } catch {}
+  };
+
+  await Promise.all([listFolder('data'), listFolder('images')]);
+  return { totalBytes, fileCount };
+}
+
+/** Format bytes to human-readable string */
+export function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}

@@ -4,7 +4,7 @@ import { Property, PropertyStatus } from './types.ts';
 import PropertyCard from './components/PropertyCard.tsx';
 import MapView from './components/MapView';
 import { saveImageDataUrl, deleteImageKey, getImageObjectURL, saveApartmentsToFile } from './utils/idbImages';
-import { loadApartmentsFromCloud, saveApartmentsToCloud, isServerAvailable } from './services/supabaseSync';
+import { loadApartmentsFromCloud, saveApartmentsToCloud, isServerAvailable, getCloudStorageUsage, formatBytes } from './services/supabaseSync';
 
 const SYNC_SERVICE_URL = 'https://api.keyvalue.xyz'; 
 
@@ -36,6 +36,11 @@ const App: React.FC = () => {
   const [rating, setRating] = useState(0);
   const [notes, setNotes] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'price' | 'rating'>('date');
+  const [storageUsage, setStorageUsage] = useState<{ totalBytes: number; fileCount: number } | null>(null);
+
+  const refreshStorageUsage = () => {
+    getCloudStorageUsage().then(u => setStorageUsage(u)).catch(() => {});
+  };
 
   const pollInterval = useRef<any>(null);
   const modalOverlayRef = useRef<HTMLDivElement | null>(null);
@@ -88,6 +93,7 @@ const App: React.FC = () => {
 
       setProperties(data);
       try { localStorage.setItem('apartments', JSON.stringify(data)); } catch {}
+      refreshStorageUsage();
       if (changed) {
         // Save cleaned data back to cloud
         saveApartmentsToCloud(data).catch(() => {});
@@ -186,7 +192,7 @@ const App: React.FC = () => {
     setProperties(newProps);
     // Save to Supabase cloud (primary)
     saveApartmentsToCloud(newProps).then(ok => {
-      if (ok) console.log('Saved to Supabase cloud ☁️');
+      if (ok) { console.log('Saved to Supabase cloud ☁️'); refreshStorageUsage(); }
       else console.warn('Cloud save failed (will retry next save)');
     });
     // Also save to localStorage as fallback
@@ -558,6 +564,11 @@ const App: React.FC = () => {
               <span className="text-[9px] text-slate-400 font-bold uppercase">
                 {isSyncing ? `סנכרון: ${syncCode}` : 'מצב מקומי'}
               </span>
+              {storageUsage && (
+                <span className="text-[9px] text-indigo-400 font-bold mr-2">
+                  ☁️ {formatBytes(storageUsage.totalBytes)} ({storageUsage.fileCount} קבצים)
+                </span>
+              )}
             </div>
           </div>
         </div>
