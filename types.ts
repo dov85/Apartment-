@@ -25,6 +25,8 @@ export interface Property {
   hasBrokerFee?: boolean;
   rating?: number;  // 1-10
   notes?: string;
+  reminderDate?: string;  // ISO date string e.g. '2026-02-20'
+  reminderText?: string;  // reminder note e.g. 'לדבר עם בעל הדירה'
   images: string[];
   link: string;
   status: PropertyStatus;

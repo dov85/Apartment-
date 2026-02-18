@@ -36,6 +36,8 @@ const App: React.FC = () => {
   const [hasBrokerFee, setHasBrokerFee] = useState(false);
   const [rating, setRating] = useState(0);
   const [notes, setNotes] = useState('');
+  const [reminderDate, setReminderDate] = useState('');
+  const [reminderText, setReminderText] = useState('');
   const [formStatus, setFormStatus] = useState<PropertyStatus>(PropertyStatus.NEW);
   const [sortBy, setSortBy] = useState<'date' | 'price' | 'rating'>('date');
   const [storageUsage, setStorageUsage] = useState<{ totalBytes: number; fileCount: number } | null>(null);
@@ -308,6 +310,8 @@ const App: React.FC = () => {
     setHasBrokerFee(prop.hasBrokerFee || false);
     setRating(prop.rating || 0);
     setNotes(prop.notes || '');
+    setReminderDate(prop.reminderDate || '');
+    setReminderText(prop.reminderText || '');
     setFormStatus(prop.status || PropertyStatus.NEW);
 
     // Resolve stored image refs to displayable URLs, keep original refs
@@ -408,6 +412,8 @@ const App: React.FC = () => {
         hasBrokerFee,
         rating: rating || undefined,
         notes: notes || undefined,
+        reminderDate: reminderDate || undefined,
+        reminderText: reminderText || undefined,
         images: finalImageRefs,
         link: link || '',
         status: currentEditingId ? formStatus : PropertyStatus.NEW,
@@ -493,6 +499,8 @@ const App: React.FC = () => {
     setHasBrokerFee(false);
     setRating(0);
     setNotes('');
+    setReminderDate('');
+    setReminderText('');
     setFormStatus(PropertyStatus.NEW);
     setEditingId(null);
   };
@@ -1049,6 +1057,44 @@ const App: React.FC = () => {
                   rows={3}
                   dir="rtl"
                 />
+              </div>
+
+              {/* תזכורת */}
+              <div className="bg-amber-50 border-2 border-amber-100 rounded-xl md:rounded-2xl p-4">
+                <label className="block text-[10px] font-black text-amber-600 uppercase tracking-widest mb-2 px-1 flex items-center gap-1">
+                  🔔 תזכורת
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-amber-500 mb-1 px-1">תאריך</label>
+                    <input
+                      type="date"
+                      value={reminderDate}
+                      onChange={(e) => setReminderDate(e.target.value)}
+                      className="w-full bg-white border-2 border-amber-100 rounded-xl p-3 text-slate-800 font-bold focus:border-amber-400 outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-amber-500 mb-1 px-1">על מה?</label>
+                    <input
+                      type="text"
+                      placeholder="לדוגמא: לדבר עם בעל הדירה..."
+                      value={reminderText}
+                      onChange={(e) => setReminderText(e.target.value)}
+                      className="w-full bg-white border-2 border-amber-100 rounded-xl p-3 text-slate-800 font-bold focus:border-amber-400 outline-none transition-all"
+                      dir="rtl"
+                    />
+                  </div>
+                </div>
+                {reminderDate && (
+                  <button
+                    type="button"
+                    onClick={() => { setReminderDate(''); setReminderText(''); }}
+                    className="mt-2 text-xs text-amber-500 hover:text-amber-700 font-bold transition-colors"
+                  >
+                    ✕ הסר תזכורת
+                  </button>
+                )}
               </div>
 
               <div className="flex gap-4 pt-2">

@@ -25,11 +25,43 @@ function displayTitle(p: Property): string {
   return parts.length > 0 ? parts.join(', ') : 'ללא כותרת';
 }
 
+/** Check reminder status */
+function getReminderStatus(p: Property): 'none' | 'due' | 'upcoming' | 'past' {
+  if (!p.reminderDate) return 'none';
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const reminder = new Date(p.reminderDate + 'T00:00:00');
+  const diff = reminder.getTime() - today.getTime();
+  const days = Math.round(diff / (1000 * 60 * 60 * 24));
+  if (days < 0) return 'past';
+  if (days === 0) return 'due';
+  return 'upcoming';
+}
+
+/** Format date for display in Hebrew-friendly format */
+function formatReminderDate(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.round((d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (diff === 0) return 'היום';
+  if (diff === 1) return 'מחר';
+  if (diff === -1) return 'אתמול';
+  if (diff < -1) return `לפני ${Math.abs(diff)} ימים`;
+  if (diff <= 7) return `בעוד ${diff} ימים`;
+  return d.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
+}
+
 const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, onEdit, onUpdate }) => {
   const [showNotes, setShowNotes] = useState(false);
   const [localNotes, setLocalNotes] = useState(property.notes || '');
   const [detailOpen, setDetailOpen] = useState(false);
+  const [showReminderForm, setShowReminderForm] = useState(false);
+  const [reminderDateInput, setReminderDateInput] = useState(property.reminderDate || '');
+  const [reminderTextInput, setReminderTextInput] = useState(property.reminderText || '');
   const notesTimer = React.useRef<any>(null);
+
+  const reminderStatus = getReminderStatus(property);
 
   // Sync local notes when property changes externally
   useEffect(() => { setLocalNotes(property.notes || ''); }, [property.notes]);
@@ -255,6 +287,17 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
             {property.status}
           </span>
         </div>
+
+        {/* Reminder badge on image */}
+        {reminderStatus !== 'none' && (
+          <div className={`absolute top-4 left-4 px-3 py-2 rounded-2xl text-xs font-black shadow-lg backdrop-blur-md flex items-center gap-1 ${
+            reminderStatus === 'due' ? 'bg-red-500/90 text-white animate-pulse' :
+            reminderStatus === 'past' ? 'bg-orange-500/90 text-white' :
+            'bg-amber-400/90 text-amber-900'
+          }`}>
+            🔔 {formatReminderDate(property.reminderDate!)}
+          </div>
+        )}
       </div>
       
       <div className="p-6 flex flex-col flex-1">
@@ -325,6 +368,77 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
           <p className="text-xs text-slate-400 truncate max-w-full mb-3">📝 {localNotes}</p>
         )}
 
+        {/* Reminder section */}
+        {reminderStatus !== 'none' && !showReminderForm && (
+          <div className={`flex items-center gap-2 mb-3 p-2.5 rounded-xl text-xs font-bold ${
+            reminderStatus === 'due' ? 'bg-red-50 text-red-700 border border-red-200' :
+            reminderStatus === 'past' ? 'bg-orange-50 text-orange-700 border border-orange-200' :
+            'bg-amber-50 text-amber-700 border border-amber-200'
+          }`}>
+            <span>🔔</span>
+            <div className="flex-1 min-w-0">
+              <span className="font-black">{formatReminderDate(property.reminderDate!)}</span>
+              {property.reminderText && <span className="mr-1"> — {property.reminderText}</span>}
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); onUpdate && onUpdate(property.id, { reminderDate: undefined, reminderText: undefined }); }}
+              className="text-xs opacity-60 hover:opacity-100 transition-opacity shrink-0"
+              title="הסר תזכורת"
+            >✕</button>
+          </div>
+        )}
+
+        {/* Quick reminder form */}
+        {showReminderForm && (
+          <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-2" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-amber-700">🔔 הגדר תזכורת</span>
+              <button onClick={() => setShowReminderForm(false)} className="text-xs text-amber-500 hover:text-amber-700">✕</button>
+            </div>
+            <input
+              type="date"
+              value={reminderDateInput}
+              onChange={(e) => setReminderDateInput(e.target.value)}
+              className="w-full bg-white border border-amber-200 rounded-lg p-2 text-sm font-bold text-slate-800 outline-none focus:border-amber-400"
+            />
+            <input
+              type="text"
+              placeholder="על מה? (לדוגמא: להתקשר...)" 
+              value={reminderTextInput}
+              onChange={(e) => setReminderTextInput(e.target.value)}
+              className="w-full bg-white border border-amber-200 rounded-lg p-2 text-sm font-bold text-slate-800 outline-none focus:border-amber-400"
+              dir="rtl"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  if (reminderDateInput) {
+                    onUpdate && onUpdate(property.id, { reminderDate: reminderDateInput, reminderText: reminderTextInput || undefined });
+                  }
+                  setShowReminderForm(false);
+                }}
+                disabled={!reminderDateInput}
+                className="flex-1 bg-amber-500 text-white py-2 rounded-lg text-xs font-black hover:bg-amber-600 transition-all disabled:opacity-40"
+              >
+                שמור
+              </button>
+              {property.reminderDate && (
+                <button
+                  onClick={() => {
+                    onUpdate && onUpdate(property.id, { reminderDate: undefined, reminderText: undefined });
+                    setReminderDateInput('');
+                    setReminderTextInput('');
+                    setShowReminderForm(false);
+                  }}
+                  className="px-3 bg-red-50 text-red-500 py-2 rounded-lg text-xs font-black hover:bg-red-100 transition-all"
+                >
+                  הסר
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Action buttons */}
         <div className="space-y-3 mt-auto">
           <div className="flex gap-2">
@@ -366,6 +480,13 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
               </svg>
+            </button>
+            <button 
+               onClick={() => { setReminderDateInput(property.reminderDate || ''); setReminderTextInput(property.reminderText || ''); setShowReminderForm(!showReminderForm); }}
+               className={`p-3 rounded-xl transition-colors ${reminderStatus !== 'none' ? 'text-amber-500 hover:text-amber-700 hover:bg-amber-50' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'}`}
+               title="תזכורת"
+            >
+              <span className="text-lg">🔔</span>
             </button>
             <button 
                onClick={() => onEdit && onEdit(property.id)}
@@ -469,6 +590,65 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
                   <span className="text-sm font-black text-slate-500 mr-2">{property.rating}/10</span>
                 )}
               </div>
+            </div>
+
+            {/* Reminder in detail modal */}
+            <div>
+              <span className="block text-[10px] font-black text-slate-400 uppercase mb-2">🔔 תזכורת</span>
+              {property.reminderDate ? (
+                <div className={`p-3 rounded-xl border-2 ${
+                  reminderStatus === 'due' ? 'bg-red-50 border-red-200' :
+                  reminderStatus === 'past' ? 'bg-orange-50 border-orange-200' :
+                  reminderStatus === 'upcoming' ? 'bg-amber-50 border-amber-200' :
+                  'bg-slate-50 border-slate-100'
+                }`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`text-sm font-black ${
+                      reminderStatus === 'due' ? 'text-red-600' :
+                      reminderStatus === 'past' ? 'text-orange-600' :
+                      'text-amber-600'
+                    }`}>{formatReminderDate(property.reminderDate)}</span>
+                    <button
+                      onClick={() => onUpdate({ ...property, reminderDate: undefined, reminderText: undefined })}
+                      className="text-slate-400 hover:text-red-500 text-xs font-bold"
+                    >✕ הסר</button>
+                  </div>
+                  {property.reminderText && (
+                    <p className="text-xs text-slate-600 font-medium">{property.reminderText}</p>
+                  )}
+                  <p className="text-[10px] text-slate-400 mt-1">{new Date(property.reminderDate + 'T00:00:00').toLocaleDateString('he-IL')}</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      value={reminderDateInput}
+                      onChange={e => setReminderDateInput(e.target.value)}
+                      className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-lg px-3 py-2 text-sm font-medium focus:border-amber-400 outline-none"
+                    />
+                    <button
+                      onClick={() => {
+                        if (reminderDateInput) {
+                          onUpdate({ ...property, reminderDate: reminderDateInput, reminderText: reminderTextInput || undefined });
+                          setReminderDateInput('');
+                          setReminderTextInput('');
+                        }
+                      }}
+                      disabled={!reminderDateInput}
+                      className="px-4 py-2 bg-amber-500 text-white rounded-lg text-xs font-black hover:bg-amber-600 disabled:opacity-40 transition-all"
+                    >הוסף</button>
+                  </div>
+                  <input
+                    type="text"
+                    value={reminderTextInput}
+                    onChange={e => setReminderTextInput(e.target.value)}
+                    placeholder="תוכן התזכורת (אופציונלי)..."
+                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-lg px-3 py-2 text-sm font-medium focus:border-amber-400 outline-none"
+                    dir="rtl"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Notes */}
