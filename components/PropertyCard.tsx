@@ -1,6 +1,7 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Property, PropertyStatus } from '../types.ts';
+import { getImageObjectURL } from '../utils/idbImages';
 
 interface PropertyCardProps {
   property: Property;
@@ -20,13 +21,33 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
   };
 
   const mainImage = property.images && property.images.length > 0 ? property.images[0] : null;
+  const [resolvedMainImage, setResolvedMainImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const resolve = async () => {
+      const img = property.images && property.images.length > 0 ? property.images[0] : null;
+      if (!img) { setResolvedMainImage(null); return; }
+      if (typeof img === 'string' && img.startsWith('idb://')) {
+        const key = img.replace('idb://', '');
+        try {
+          const url = await getImageObjectURL(key);
+          if (active) setResolvedMainImage(url);
+        } catch (e) { console.error(e); if (active) setResolvedMainImage(null); }
+      } else {
+        setResolvedMainImage(img as string);
+      }
+    };
+    resolve();
+    return () => { active = false; if (resolvedMainImage && resolvedMainImage.startsWith('blob:')) URL.revokeObjectURL(resolvedMainImage); };
+  }, [property.images]);
 
   return (
     <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-xl transition-all group flex flex-col h-full">
       <div className="relative h-64 bg-slate-100 shrink-0">
-        {mainImage ? (
+        {resolvedMainImage ? (
           <img 
-            src={mainImage} 
+            src={resolvedMainImage} 
             alt={property.title} 
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
           />

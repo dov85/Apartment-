@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Property, PropertyStatus } from './types.ts';
 import PropertyCard from './components/PropertyCard.tsx';
 import MapView from './components/MapView';
+import { saveImageDataUrl, deleteImageKey } from './utils/idbImages';
 
 const SYNC_SERVICE_URL = 'https://api.keyvalue.xyz'; 
 
@@ -99,8 +100,23 @@ const App: React.FC = () => {
   }, [isAdding]);
 
   const saveProperties = (newProps: Property[]) => {
+    console.log('saveProperties: saving', newProps.length, 'items');
     setProperties(newProps);
-    localStorage.setItem('apartments', JSON.stringify(newProps));
+    try {
+      localStorage.setItem('apartments', JSON.stringify(newProps));
+    } catch (err) {
+      console.error('localStorage setItem failed:', err);
+      // Fallback: try to save metadata without images to avoid exceeding quota
+      try {
+        const fallback = newProps.map(p => ({ ...p, images: [] }));
+        localStorage.setItem('apartments', JSON.stringify(fallback));
+        setProperties(fallback as Property[]);
+        alert('לא ניתן לשמור את התמונות בשל מגבלת שטח האחסון בדפדפן; שמרתי את המודעות ללא התמונות כדי שלא ייעלמו.');
+      } catch (err2) {
+        console.error('localStorage fallback also failed:', err2);
+        alert('שגיאה בשמירת המודעות ב-localStorage. בדוק שטח אחסון בדפדפן.');
+      }
+    }
     if (syncCode) pushDataToRemote(syncCode, newProps);
   };
 
@@ -108,7 +124,11 @@ const App: React.FC = () => {
     const files = e.target.files;
     if (!files) return;
 
-    Array.from(files).forEach(file => {
+    const MAX_IMAGES = 5;
+    const remaining = Math.max(0, MAX_IMAGES - imagePreviews.length);
+    const toAdd = Array.from(files).slice(0, remaining);
+    if (toAdd.length < files.length) alert(`ניתן להעלות עד ${MAX_IMAGES} תמונות בלבד.`);
+    toAdd.forEach(file => {
       const reader = new FileReader();
       reader.onload = () => {
         setImagePreviews(prev => [...prev, reader.result as string]);
@@ -118,10 +138,14 @@ const App: React.FC = () => {
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
+    const MAX_IMAGES = 5;
     const items = e.clipboardData?.items;
     if (items) {
       let handled = false;
+      const remaining = Math.max(0, MAX_IMAGES - imagePreviews.length);
+      let added = 0;
       Array.from(items).forEach((item) => {
+        if (added >= remaining) return;
         if (item.kind === 'file' && item.type.startsWith('image/')) {
           const file = item.getAsFile();
           if (file) {
@@ -129,9 +153,12 @@ const App: React.FC = () => {
             reader.onload = () => setImagePreviews(prev => [...prev, reader.result as string]);
             reader.readAsDataURL(file);
             handled = true;
+            added += 1;
           }
         }
       });
+      if (added === 0 && items.length > 0) alert(`לא נותרו מקומות להעלאת תמונות (מקסימום ${MAX_IMAGES}).`);
+      if (added < items.length && added > 0) alert(`מוגבל ל-${MAX_IMAGES} תמונות, חלק מהתמונות לא הוספו.`);
       if (handled) e.preventDefault();
       return;
     }
@@ -139,7 +166,10 @@ const App: React.FC = () => {
     // Fallback: check files list
     const files = (e.nativeEvent as any).clipboardData?.files as FileList | undefined;
     if (files && files.length) {
-      Array.from(files).forEach(file => {
+      const remaining = Math.max(0, MAX_IMAGES - imagePreviews.length);
+      const toAdd = Array.from(files).slice(0, remaining);
+      if (toAdd.length < files.length) alert(`מוגבל ל-${MAX_IMAGES} תמונות, חלק מהתמונות לא הוספו.`);
+      toAdd.forEach(file => {
         if (file.type.startsWith('image/')) {
           const reader = new FileReader();
           reader.onload = () => setImagePreviews(prev => [...prev, reader.result as string]);
@@ -154,6 +184,7 @@ const App: React.FC = () => {
   };
 
   const handleEdit = (id: string) => {
+    console.log('handleEdit:', id);
     const prop = properties.find(p => p.id === id);
     if (!prop) return;
     setEditingId(id);
@@ -169,7 +200,8 @@ const App: React.FC = () => {
   };
 
   const handleFinalSave = () => {
-    const newProp: Property = {
+    console.log('handleFinalSave - editingId:', editingId);
+    const newPropBase = {
       id: Date.now().toString(),
       title: title || 'דירה חדשה',
       street: street || '',
@@ -181,17 +213,43 @@ const App: React.FC = () => {
       link: link || '',
       status: PropertyStatus.NEW,
       createdAt: Date.now(),
-    };
+    } as any;
 
-    // try to geocode and then save (create or update)
+    // try to geocode, move images to IndexedDB (so we can store many), then save
     (async () => {
-      const coords = await geocodeAddress(newProp.street, newProp.city);
+      const coords = await geocodeAddress(newPropBase.street, newPropBase.city);
       if (coords) {
-        (newProp as any).lat = coords.lat;
-        (newProp as any).lon = coords.lon;
+        newPropBase.lat = coords.lat;
+        newPropBase.lon = coords.lon;
       }
-      let updated: Property[];
+
+      // process images: convert data URLs to IDB keys, keep existing idb:// keys
+      const finalImageRefs: string[] = [];
+      for (const img of newPropBase.images || []) {
+        if (typeof img === 'string' && img.startsWith('idb://')) {
+          finalImageRefs.push(img);
+        } else if (typeof img === 'string') {
+          try {
+            const key = await saveImageDataUrl(img);
+            finalImageRefs.push('idb://' + key);
+          } catch (e) {
+            console.error('saveImageDataUrl failed', e);
+          }
+        }
+      }
+
+      const newProp: Property = { ...newPropBase, images: finalImageRefs } as Property;
+
+      let updated: Property[] = [];
       if (editingId) {
+        // delete any old idb images that were removed
+        const existing = properties.find(p => p.id === editingId);
+        const oldImgs: string[] = existing?.images || [];
+        const toDelete = oldImgs.filter(i => i && i.startsWith('idb://') && !newProp.images.includes(i));
+        for (const d of toDelete) {
+          try { await deleteImageKey(d.replace('idb://', '')); } catch (e) { console.error('deleteImageKey failed', e); }
+        }
+
         updated = properties.map(p => p.id === editingId ? { ...p, ...newProp, id: editingId } : p);
       } else {
         updated = [newProp, ...properties];
@@ -258,8 +316,20 @@ const App: React.FC = () => {
   };
 
   const deleteProperty = (id: string) => {
+    console.log('deleteProperty:', id);
+    const prop = properties.find(p => p.id === id);
     const updated = properties.filter(p => p.id !== id);
     saveProperties(updated);
+    // async cleanup of images stored in IDB
+    (async () => {
+      if (prop?.images && prop.images.length) {
+        for (const img of prop.images) {
+          if (typeof img === 'string' && img.startsWith('idb://')) {
+            try { await deleteImageKey(img.replace('idb://', '')); } catch (e) { console.error('deleteImageKey failed', e); }
+          }
+        }
+      }
+    })();
   };
 
   const updateStatus = (id: string, status: PropertyStatus | 'DELETE') => {
