@@ -96,13 +96,14 @@ async function directDelete(storagePath: string): Promise<boolean> {
 
 /** Convert a data-URL to { blob, mimeType, ext }. */
 function dataUrlToBlob(dataUrl: string): { blob: Blob; mime: string; ext: string } | null {
-  const m = dataUrl.match(/^data:(image\/[\w+]+);base64,(.+)$/);
+  const m = dataUrl.match(/^data:([^;]+);base64,(.+)/s);
   if (!m) return null;
-  const bytes = Uint8Array.from(atob(m[2]), c => c.charCodeAt(0));
+  const bytes = Uint8Array.from(atob(m[2].replace(/\s/g, '')), c => c.charCodeAt(0));
+  const mime = m[1];
   return {
-    blob: new Blob([bytes], { type: m[1] }),
-    mime: m[1],
-    ext: m[1].split('/')[1] || 'png',
+    blob: new Blob([bytes], { type: mime }),
+    mime,
+    ext: mime.split('/')[1]?.split('+')[0] || 'png',
   };
 }
 

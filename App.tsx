@@ -53,15 +53,24 @@ const App: React.FC = () => {
       const cloudData = await loadApartmentsFromCloud();
       if (cloudData && cloudData.length > 0) {
         data = cloudData;
-        console.log('Loaded from Supabase cloud ☁️');
+        console.log('Loaded from Supabase cloud ☁️:', data.length, 'properties');
       } else {
         const saved = localStorage.getItem('apartments');
         if (saved) data = JSON.parse(saved);
         console.log('Cloud unavailable, loaded from localStorage');
       }
 
-      // Cleanup: remove broken idb:// refs whose blobs no longer exist in IndexedDB
       let changed = false;
+
+      // Migrate old `address` field → street/city
+      data = data.map((item: any) => {
+        if (item.address && !item.street && !item.city) {
+          const parts = item.address.split(',').map((p: string) => p.trim());
+          changed = true;
+          return { ...item, street: parts[0] || '', city: parts[1] || '' };
+        }
+        return item;
+      });
 
       // Migrate "דירה חדשה" titles to empty (will show address instead)
       for (const prop of data) {
@@ -71,6 +80,14 @@ const App: React.FC = () => {
         }
       }
 
+      // Ensure every property has required fields
+      for (const prop of data) {
+        if (!prop.images) { prop.images = []; }
+        if (!prop.status) { prop.status = PropertyStatus.NEW; }
+        if (!prop.link) { prop.link = ''; }
+      }
+
+      // Cleanup: remove broken idb:// refs
       for (const prop of data) {
         if (!prop.images || !prop.images.length) continue;
         const validImages: string[] = [];
@@ -92,34 +109,15 @@ const App: React.FC = () => {
         }
       }
 
+      console.log('Setting properties:', data.length, 'items, images:', data.map((p: any) => p.images?.length || 0));
       setProperties(data);
       try { localStorage.setItem('apartments', JSON.stringify(data)); } catch {}
       refreshStorageUsage();
       if (changed) {
-        // Save cleaned data back to cloud
         saveApartmentsToCloud(data).catch(() => {});
-        console.log('Cleaned up broken idb:// image references');
+        console.log('Cleaned up / migrated data saved to cloud');
       }
     })();
-  }, []);
-
-  // migrate old saved data which used `address` into `street`/`city`
-  useEffect(() => {
-    const saved = localStorage.getItem('apartments');
-    if (!saved) return;
-    try {
-      const parsed = JSON.parse(saved) as any[];
-      const migrated = parsed.map(item => {
-        if (item.address && !item.street && !item.city) {
-          // best-effort split: split by comma
-          const parts = item.address.split(',').map((p: string) => p.trim());
-          return { ...item, street: parts[0] || '', city: parts[1] || '' };
-        }
-        return item;
-      });
-      setProperties(migrated);
-      localStorage.setItem('apartments', JSON.stringify(migrated));
-    } catch (e) {}
   }, []);
 
   const fetchRemoteData = async (code: string) => {
@@ -396,7 +394,9 @@ const App: React.FC = () => {
         images: finalImageRefs,
         link: link || '',
         status: currentEditingId ? formStatus : PropertyStatus.NEW,
-        createdAt: Date.now(),
+        createdAt: currentEditingId
+          ? (currentProperties.find(p => p.id === currentEditingId)?.createdAt || Date.now())
+          : Date.now(),
         lat,
         lon,
       } as Property;
