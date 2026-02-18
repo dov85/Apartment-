@@ -406,17 +406,36 @@ const App: React.FC = () => {
     setEditingId(null);
   };
 
-  // Simple Nominatim geocoding (free). Query: street + city + Israel.
+  // Nominatim geocoding — uses structured query when city is provided for better accuracy.
   const geocodeAddress = async (streetQ: string, cityQ: string) => {
-    const q = [streetQ, cityQ, 'Israel'].filter(Boolean).join(', ');
-    if (!q.trim()) return null;
+    if (!streetQ && !cityQ) return null;
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1&countrycodes=il` , {
-        headers: { 'Accept-Language': 'en-US', 'User-Agent': 'ApartmentHunter/1.0 (+https://example.com)'} as any
+      let url: string;
+      if (cityQ && streetQ) {
+        // Structured query: better accuracy when both street & city are known
+        url = `https://nominatim.openstreetmap.org/search?format=json&street=${encodeURIComponent(streetQ)}&city=${encodeURIComponent(cityQ)}&country=Israel&limit=1`;
+      } else {
+        // Free-form fallback
+        const q = [streetQ, cityQ, 'Israel'].filter(Boolean).join(', ');
+        url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=il&limit=1`;
+      }
+      const res = await fetch(url, {
+        headers: { 'Accept-Language': 'he', 'User-Agent': 'ApartmentHunter/1.0 (+https://example.com)'} as any
       });
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+      }
+      // If structured query failed, retry with free-form
+      if (cityQ && streetQ) {
+        const q = [streetQ, cityQ, 'Israel'].filter(Boolean).join(', ');
+        const res2 = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=il&limit=1`, {
+          headers: { 'Accept-Language': 'he', 'User-Agent': 'ApartmentHunter/1.0 (+https://example.com)'} as any
+        });
+        const data2 = await res2.json();
+        if (Array.isArray(data2) && data2.length > 0) {
+          return { lat: parseFloat(data2[0].lat), lon: parseFloat(data2[0].lon) };
+        }
       }
     } catch (e) {}
     return null;
