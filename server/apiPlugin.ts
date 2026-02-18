@@ -255,6 +255,60 @@ export default function apiPlugin(): Plugin {
           return;
         }
 
+        // ── POST /api/sync-images  (download all missing images from Supabase) ──
+        if (url === '/api/sync-images' && req.method === 'POST') {
+          try {
+            ensureDirs();
+            const body = await collectBody(req);
+            const { imageKeys } = JSON.parse(body.toString('utf-8')) as { imageKeys: string[] };
+            let downloaded = 0;
+            let skipped = 0;
+            let failed = 0;
+            const errors: string[] = [];
+
+            for (const key of imageKeys) {
+              if (!key || typeof key !== 'string') continue;
+              // Skip data: / blob: / idb- refs
+              if (key.startsWith('data:') || key.startsWith('blob:') || key.startsWith('idb-') || key.startsWith('idb://')) continue;
+              const bareKey = key.startsWith('file://') ? key.replace('file://', '') : key;
+              const filePath = path.join(IMAGES_DIR, bareKey);
+
+              if (fs.existsSync(filePath)) {
+                skipped++;
+                continue;
+              }
+
+              // Download from Supabase
+              try {
+                const sbUrl = `${SUPABASE_URL}/storage/v1/object/public/${SB_BUCKET}/images/${bareKey}`;
+                console.log(`[sync] Downloading: ${bareKey}`);
+                const sbRes = await fetch(sbUrl);
+                if (sbRes.ok) {
+                  const bytes = new Uint8Array(await sbRes.arrayBuffer());
+                  fs.writeFileSync(filePath, bytes);
+                  downloaded++;
+                  console.log(`[sync] Downloaded ${bareKey} (${bytes.length} bytes)`);
+                } else {
+                  failed++;
+                  errors.push(`${bareKey}: HTTP ${sbRes.status}`);
+                  console.warn(`[sync] Failed ${bareKey}: ${sbRes.status}`);
+                }
+              } catch (e: any) {
+                failed++;
+                errors.push(`${bareKey}: ${e.message}`);
+                console.error(`[sync] Error downloading ${bareKey}:`, e.message);
+              }
+            }
+
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ ok: true, downloaded, skipped, failed, errors }));
+          } catch (e: any) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: e.message }));
+          }
+          return;
+        }
+
         next();
       });
     },

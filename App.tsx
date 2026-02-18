@@ -610,6 +610,35 @@ const App: React.FC = () => {
       } else {
         console.warn('Could not write local file (server not running?)');
       }
+
+      // Sync all images — download missing ones from Supabase
+      const allImageKeys: string[] = [];
+      for (const prop of cloudData) {
+        if (prop.images && Array.isArray(prop.images)) {
+          for (const img of prop.images) {
+            if (typeof img === 'string') allImageKeys.push(img);
+          }
+        }
+      }
+      if (allImageKeys.length > 0) {
+        try {
+          const syncRes = await fetch('/api/sync-images', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageKeys: allImageKeys }),
+          });
+          if (syncRes.ok) {
+            const result = await syncRes.json();
+            console.log(`Image sync: ${result.downloaded} downloaded, ${result.skipped} already local, ${result.failed} failed`);
+            if (result.downloaded > 0 || result.failed > 0) {
+              showToast(`תמונות: ${result.downloaded} הורדו, ${result.skipped} כבר קיימות${result.failed > 0 ? `, ${result.failed} נכשלו` : ''}`, result.failed > 0 ? 'error' : 'success', 5000);
+            }
+          }
+        } catch (e) {
+          console.error('Image sync failed:', e);
+        }
+      }
+
       // Update state and localStorage
       setProperties(cloudData);
       try { localStorage.setItem('apartments', JSON.stringify(cloudData)); } catch {}
