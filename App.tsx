@@ -32,6 +32,7 @@ const App: React.FC = () => {
   const [hasElevator, setHasElevator] = useState(false);
   const [hasBalcony, setHasBalcony] = useState(false);
   const [rating, setRating] = useState(0);
+  const [notes, setNotes] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'price' | 'rating'>('date');
 
   const pollInterval = useRef<any>(null);
@@ -283,6 +284,7 @@ const App: React.FC = () => {
     setHasElevator(prop.hasElevator || false);
     setHasBalcony(prop.hasBalcony || false);
     setRating(prop.rating || 0);
+    setNotes(prop.notes || '');
 
     // Resolve stored image refs to displayable URLs, keep original refs
     const refs = prop.images || [];
@@ -330,6 +332,7 @@ const App: React.FC = () => {
       hasElevator,
       hasBalcony,
       rating: rating || undefined,
+      notes: notes || undefined,
       images: imageRefs,
       link: link || '',
       status: PropertyStatus.NEW,
@@ -403,6 +406,7 @@ const App: React.FC = () => {
     setHasElevator(false);
     setHasBalcony(false);
     setRating(0);
+    setNotes('');
     setEditingId(null);
   };
 
@@ -493,6 +497,11 @@ const App: React.FC = () => {
       const updated = properties.map(p => p.id === id ? { ...p, status } : p);
       saveProperties(updated);
     }
+  };
+
+  const updateProperty = (id: string, updates: Partial<Property>) => {
+    const updated = properties.map(p => p.id === id ? { ...p, ...updates } : p);
+    saveProperties(updated);
   };
 
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.href)}`;
@@ -587,7 +596,8 @@ const App: React.FC = () => {
                 key={property.id} 
                 property={property} 
                 onStatusChange={updateStatus}
-                  onEdit={handleEdit}
+                onEdit={handleEdit}
+                onUpdate={updateProperty}
               />
             ))}
           </div>
@@ -840,6 +850,19 @@ const App: React.FC = () => {
                     </button>
                   )}
                 </div>
+              </div>
+
+              {/* הערות */}
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">הערות</label>
+                <textarea
+                  placeholder="הערות אישיות על הדירה..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl md:rounded-2xl p-3 md:p-4 text-slate-800 font-bold focus:border-indigo-500 focus:bg-white outline-none transition-all resize-none"
+                  rows={3}
+                  dir="rtl"
+                />
               </div>
 
               <div className="flex gap-4 pt-2">

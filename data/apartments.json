@@ -1,27 +1,9 @@
 [
   {
-    "id": "1771376997624",
-    "title": "דירה חדשה",
-    "street": "צבי שץ",
-    "city": "",
-    "price": 3400,
-    "phone": "0546788722",
-    "rooms": "2.5",
-    "images": [
-      "mlrcqdcg-6lmzl8i.png",
-      "mlrcqdd8-j3ao2fo.png"
-    ],
-    "link": "https://www.facebook.com/groups/963153170558917/permalink/2978190609055153/?mibextid=wwXIfr&rdid=UR2PUbZEs4HeEiAV#",
-    "status": "חדש",
-    "createdAt": 1771378011414,
-    "lat": 31.8685757,
-    "lon": 34.7443858
-  },
-  {
     "id": "1771376857898",
     "title": "דירה חדשה",
     "street": "סוקולוב",
-    "city": "",
+    "city": "חולון",
     "price": 4500,
     "phone": "0549577976",
     "rooms": "3",
@@ -31,9 +13,11 @@
     ],
     "link": "https://www.facebook.com/groups/963153170558917/permalink/2978334569040757/?mibextid=wwXIfr&rdid=aZZsIQ1AjW3wXvnP#",
     "status": "חדש",
-    "createdAt": 1771378094637,
-    "lat": 32.1672053,
-    "lon": 34.8444204
+    "createdAt": 1771426103304,
+    "lat": 32.0224852,
+    "lon": 34.7812497,
+    "hasElevator": false,
+    "hasBalcony": false
   },
   {
     "id": "1771375294985",

@@ -7,9 +7,29 @@ interface PropertyCardProps {
   property: Property;
   onStatusChange: (id: string, status: PropertyStatus | 'DELETE') => void;
   onEdit?: (id: string) => void;
+  onUpdate?: (id: string, updates: Partial<Property>) => void;
 }
 
-const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, onEdit }) => {
+const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, onEdit, onUpdate }) => {
+  const [showNotes, setShowNotes] = useState(false);
+  const [localNotes, setLocalNotes] = useState(property.notes || '');
+  const notesTimer = React.useRef<any>(null);
+
+  // Sync local notes when property changes externally
+  useEffect(() => { setLocalNotes(property.notes || ''); }, [property.notes]);
+
+  const handleNotesChange = (val: string) => {
+    setLocalNotes(val);
+    if (notesTimer.current) clearTimeout(notesTimer.current);
+    notesTimer.current = setTimeout(() => {
+      onUpdate && onUpdate(property.id, { notes: val });
+    }, 600);
+  };
+
+  const handleRatingClick = (star: number) => {
+    const newRating = property.rating === star ? 0 : star;
+    onUpdate && onUpdate(property.id, { rating: newRating || undefined });
+  };
   const getStatusColor = (status: PropertyStatus) => {
     switch (status) {
       case PropertyStatus.NEW: return 'bg-blue-100 text-blue-800';
@@ -166,15 +186,47 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
           )}
         </div>
 
-        {/* Rating stars */}
-        {property.rating != null && property.rating > 0 && (
-          <div className="flex items-center gap-1 mb-4" dir="ltr">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => (
-              <span key={star} className={`text-sm ${star <= (property.rating || 0) ? 'text-yellow-400' : 'text-slate-200'}`}>★</span>
-            ))}
+        {/* Interactive rating stars */}
+        <div className="flex items-center gap-0.5 mb-3" dir="ltr">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => (
+            <button
+              key={star}
+              onClick={() => handleRatingClick(star)}
+              className={`text-lg transition-all hover:scale-125 ${star <= (property.rating || 0) ? 'text-yellow-400 drop-shadow-sm' : 'text-slate-200 hover:text-yellow-300'}`}
+            >
+              ★
+            </button>
+          ))}
+          {(property.rating || 0) > 0 && (
             <span className="text-xs font-black text-slate-500 mr-1">{property.rating}/10</span>
-          </div>
-        )}
+          )}
+        </div>
+
+        {/* Notes toggle + area */}
+        <div className="mb-3">
+          <button
+            onClick={() => setShowNotes(!showNotes)}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-indigo-500 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            {showNotes ? 'הסתר הערות' : (localNotes ? 'הערות ✏️' : 'הוסף הערה')}
+          </button>
+          {showNotes && (
+            <textarea
+              value={localNotes}
+              onChange={(e) => handleNotesChange(e.target.value)}
+              placeholder="רשום הערות על הדירה..."
+              className="mt-2 w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 text-sm text-slate-700 font-medium focus:border-indigo-400 focus:bg-white outline-none transition-all resize-none"
+              rows={3}
+              dir="rtl"
+            />
+          )}
+          {!showNotes && localNotes && (
+            <p className="mt-1 text-xs text-slate-400 truncate max-w-full">{localNotes}</p>
+          )}
+        </div>
 
         <div className="space-y-3 mt-auto">
           <div className="flex gap-2">

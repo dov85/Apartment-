@@ -22,6 +22,7 @@ export interface Property {
   hasElevator?: boolean;
   hasBalcony?: boolean;
   rating?: number;  // 1-10
+  notes?: string;
   images: string[];
   link: string;
   status: PropertyStatus;
