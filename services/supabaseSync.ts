@@ -159,13 +159,25 @@ export async function uploadImageToCloud(dataUrl: string): Promise<string> {
     const { key } = await res.json();
     return key;
   }
-  // Direct mode
-  const parsed = dataUrlToBlob(dataUrl);
-  if (!parsed) throw new Error('Invalid data URL');
+  // Direct mode — use fetch() to robustly convert data URL to Blob
+  let blob: Blob;
+  try {
+    const fetchRes = await fetch(dataUrl);
+    blob = await fetchRes.blob();
+  } catch (e) {
+    // Fallback: try manual parsing
+    const parsed = dataUrlToBlob(dataUrl);
+    if (!parsed) throw new Error('Invalid data URL — could not convert to blob');
+    blob = parsed.blob;
+  }
+  const mime = blob.type || 'image/png';
+  const ext = mime.split('/')[1]?.split('+')[0]?.split(';')[0] || 'png';
   const key =
-    Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9) + '.' + parsed.ext;
-  const ok = await directUpload(`images/${key}`, parsed.blob, parsed.mime);
-  if (!ok) throw new Error('Direct Supabase image upload failed');
+    Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9) + '.' + ext;
+  console.log('Uploading image to Supabase:', key, 'size:', blob.size, 'type:', mime);
+  const ok = await directUpload(`images/${key}`, blob, mime);
+  if (!ok) throw new Error('Direct Supabase image upload failed for key: ' + key);
+  console.log('Image uploaded successfully:', key);
   return key;
 }
 

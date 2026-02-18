@@ -188,15 +188,10 @@ const App: React.FC = () => {
     return () => document.removeEventListener('paste', handler);
   }, [isAdding]);
 
-  const saveProperties = (newProps: Property[]) => {
-    console.log('saveProperties: saving', newProps.length, 'items');
+  const saveProperties = async (newProps: Property[]) => {
+    console.log('saveProperties: saving', newProps.length, 'items, images:', newProps.map(p => p.images?.length || 0));
     setProperties(newProps);
-    // Save to Supabase cloud (primary)
-    saveApartmentsToCloud(newProps).then(ok => {
-      if (ok) { console.log('Saved to Supabase cloud ☁️'); refreshStorageUsage(); }
-      else console.warn('Cloud save failed (will retry next save)');
-    });
-    // Also save to localStorage as fallback
+    // Save to localStorage as fallback (sync, fast)
     try {
       localStorage.setItem('apartments', JSON.stringify(newProps));
     } catch (err) {
@@ -207,6 +202,14 @@ const App: React.FC = () => {
       } catch (err2) {
         console.error('localStorage fallback also failed:', err2);
       }
+    }
+    // Save to Supabase cloud (primary)
+    try {
+      const ok = await saveApartmentsToCloud(newProps);
+      if (ok) { console.log('Saved to Supabase cloud ☁️'); refreshStorageUsage(); }
+      else console.warn('Cloud save FAILED — data is in localStorage only');
+    } catch (e) {
+      console.error('Cloud save error:', e);
     }
     if (syncCode) pushDataToRemote(syncCode, newProps);
   };
@@ -328,8 +331,11 @@ const App: React.FC = () => {
     setIsAdding(true);
   };
 
+  const [isSavingProperty, setIsSavingProperty] = useState(false);
+
   const handleFinalSave = () => {
-    console.log('handleFinalSave - editingId:', editingId);
+    console.log('handleFinalSave - editingId:', editingId, 'imageRefs:', imageRefs.length);
+    const currentEditingId = editingId;
     const newPropBase = {
       id: Date.now().toString(),
       title: title || '',
@@ -345,59 +351,90 @@ const App: React.FC = () => {
       hasBrokerFee,
       rating: rating || undefined,
       notes: notes || undefined,
-      images: imageRefs,
+      images: [...imageRefs],  // snapshot copy
       link: link || '',
-      status: editingId ? formStatus : PropertyStatus.NEW,
+      status: currentEditingId ? formStatus : PropertyStatus.NEW,
       createdAt: Date.now(),
     } as any;
 
+    setIsSavingProperty(true);
+
     // try to geocode, save images to disk, then persist listing
     (async () => {
-      const coords = await geocodeAddress(newPropBase.street, newPropBase.city);
-      if (coords) {
-        newPropBase.lat = coords.lat;
-        newPropBase.lon = coords.lon;
-      }
+      try {
+        const coords = await geocodeAddress(newPropBase.street, newPropBase.city);
+        if (coords) {
+          newPropBase.lat = coords.lat;
+          newPropBase.lon = coords.lon;
+        }
 
-      // process images: convert data URLs to file/IDB keys, keep existing refs
-      const finalImageRefs: string[] = [];
-      for (const img of newPropBase.images || []) {
-        if (typeof img === 'string' && (img.startsWith('idb://') || img.startsWith('file://') || (!img.startsWith('data:') && !img.startsWith('blob:')))) {
-          // Already a stored reference — keep it
-          finalImageRefs.push(img);
-        } else if (typeof img === 'string' && img.startsWith('data:')) {
-          try {
-            const key = await saveImageDataUrl(img);
-            // key is a filename (file API) or starts with idb- (fallback)
-            finalImageRefs.push(key);
-          } catch (e) {
-            console.error('saveImageDataUrl failed', e);
+        // process images: convert data URLs to file/IDB keys, keep existing refs
+        const finalImageRefs: string[] = [];
+        for (const img of newPropBase.images || []) {
+          if (typeof img === 'string' && (img.startsWith('idb://') || img.startsWith('file://') || (!img.startsWith('data:') && !img.startsWith('blob:')))) {
+            // Already a stored reference — keep it
+            finalImageRefs.push(img);
+            console.log('Keeping existing image ref:', img);
+          } else if (typeof img === 'string' && (img.startsWith('data:') || img.startsWith('blob:'))) {
+            try {
+              const key = await saveImageDataUrl(img);
+              finalImageRefs.push(key);
+              console.log('Uploaded new image, key:', key);
+            } catch (e) {
+              console.error('saveImageDataUrl failed for image', e);
+            }
           }
         }
-      }
 
-      const newProp: Property = { ...newPropBase, images: finalImageRefs } as Property;
+        console.log('Final image refs:', finalImageRefs);
+        const newProp: Property = { ...newPropBase, images: finalImageRefs } as Property;
 
-      let updated: Property[] = [];
-      if (editingId) {
-        // delete any old images that were removed
-        const existing = properties.find(p => p.id === editingId);
-        const oldImgs: string[] = existing?.images || [];
-        const newImgSet = new Set(newProp.images);
-        const toDelete = oldImgs.filter(i => i && !newImgSet.has(i) && !i.startsWith('data:') && !i.startsWith('blob:'));
-        for (const d of toDelete) {
-          try {
-            const cleanKey = d.startsWith('idb://') ? d.replace('idb://', '') : d;
-            await deleteImageKey(cleanKey);
-          } catch (e) { console.error('deleteImageKey failed', e); }
+        // Use functional update to get the LATEST properties state
+        let updatedProps: Property[] = [];
+        setProperties(prev => {
+          if (currentEditingId) {
+            // delete any old images that were removed
+            const existing = prev.find(p => p.id === currentEditingId);
+            const oldImgs: string[] = existing?.images || [];
+            const newImgSet = new Set(newProp.images);
+            const toDelete = oldImgs.filter(i => i && !newImgSet.has(i) && !i.startsWith('data:') && !i.startsWith('blob:'));
+            // Fire-and-forget image deletion
+            for (const d of toDelete) {
+              const cleanKey = d.startsWith('idb://') ? d.replace('idb://', '') : d;
+              deleteImageKey(cleanKey).catch(e => console.error('deleteImageKey failed', e));
+            }
+            updatedProps = prev.map(p => p.id === currentEditingId ? { ...p, ...newProp, id: currentEditingId } : p);
+          } else {
+            updatedProps = [newProp, ...prev];
+          }
+          return updatedProps;
+        });
+
+        // Wait for state to settle, then persist
+        // We need a small delay to ensure setProperties has flushed
+        await new Promise(r => setTimeout(r, 50));
+
+        // Save to localStorage + cloud
+        console.log('Saving', updatedProps.length, 'properties with images:', updatedProps.map(p => p.images?.length || 0));
+        try {
+          localStorage.setItem('apartments', JSON.stringify(updatedProps));
+        } catch (err) {
+          console.error('localStorage save failed:', err);
         }
-
-        updated = properties.map(p => p.id === editingId ? { ...p, ...newProp, id: editingId } : p);
-      } else {
-        updated = [newProp, ...properties];
+        const cloudOk = await saveApartmentsToCloud(updatedProps);
+        if (cloudOk) {
+          console.log('Saved to Supabase cloud ☁️');
+          refreshStorageUsage();
+        } else {
+          console.error('Cloud save FAILED — data saved to localStorage only');
+        }
+        if (syncCode) pushDataToRemote(syncCode, updatedProps);
+      } catch (e) {
+        console.error('handleFinalSave error:', e);
+      } finally {
+        setIsSavingProperty(false);
+        resetForm();
       }
-      saveProperties(updated);
-      resetForm();
     })();
   };
 
@@ -940,13 +977,17 @@ const App: React.FC = () => {
               <div className="flex gap-4 pt-2">
                 <button 
                   onClick={handleFinalSave}
-                  className="flex-1 bg-indigo-600 text-white font-black py-4 md:py-5 rounded-xl md:rounded-2xl shadow-xl hover:bg-indigo-700 transition-all active:scale-95 text-base md:text-lg"
+                  disabled={isSavingProperty}
+                  className={`flex-1 text-white font-black py-4 md:py-5 rounded-xl md:rounded-2xl shadow-xl transition-all active:scale-95 text-base md:text-lg ${
+                    isSavingProperty ? 'bg-indigo-400 cursor-wait' : 'bg-indigo-600 hover:bg-indigo-700'
+                  }`}
                 >
-                  שמור מודעה
+                  {isSavingProperty ? '⏳ שומר תמונות...' : 'שמור מודעה'}
                 </button>
                 <button 
                   onClick={resetForm}
-                  className="px-6 md:px-8 bg-slate-100 text-slate-500 font-black py-4 md:py-5 rounded-xl md:rounded-2xl hover:bg-slate-200 transition-all"
+                  disabled={isSavingProperty}
+                  className="px-6 md:px-8 bg-slate-100 text-slate-500 font-black py-4 md:py-5 rounded-xl md:rounded-2xl hover:bg-slate-200 transition-all disabled:opacity-50"
                 >
                   ביטול
                 </button>
