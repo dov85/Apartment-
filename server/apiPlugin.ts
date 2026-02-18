@@ -143,14 +143,35 @@ export default function apiPlugin(): Plugin {
         // ── GET /api/images/<key> ────────────────────────────
         if (url.startsWith('/api/images/') && req.method === 'GET') {
           const key = decodeURIComponent(url.replace('/api/images/', ''));
+          ensureDirs();
           const filePath = path.join(IMAGES_DIR, key);
+
+          // If file doesn't exist locally, try downloading from Supabase
           if (!fs.existsSync(filePath)) {
-            res.statusCode = 404;
-            res.end('Not found');
-            return;
+            try {
+              const sbUrl = `${SUPABASE_URL}/storage/v1/object/public/${SB_BUCKET}/images/${key}`;
+              console.log(`[api] Image not found locally, downloading from Supabase: ${key}`);
+              const sbRes = await fetch(sbUrl);
+              if (sbRes.ok) {
+                const bytes = new Uint8Array(await sbRes.arrayBuffer());
+                fs.writeFileSync(filePath, bytes);
+                console.log(`[api] Downloaded ${key} (${bytes.length} bytes)`);
+              } else {
+                console.warn(`[api] Supabase download failed for ${key}: ${sbRes.status}`);
+                res.statusCode = 404;
+                res.end('Not found');
+                return;
+              }
+            } catch (e: any) {
+              console.error(`[api] Failed to download ${key} from Supabase:`, e.message);
+              res.statusCode = 404;
+              res.end('Not found');
+              return;
+            }
           }
+
           const ext = path.extname(key).replace('.', '');
-          res.setHeader('Content-Type', `image/${ext || 'png'}`);
+          res.setHeader('Content-Type', `image/${ext === 'jpg' ? 'jpeg' : ext || 'png'}`);
           res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
           fs.createReadStream(filePath).pipe(res);
           return;

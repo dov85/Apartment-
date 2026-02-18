@@ -1,24 +1,5 @@
 [
   {
-    "id": "1771450265305",
-    "title": "",
-    "street": "",
-    "city": "",
-    "price": 0,
-    "phone": "",
-    "rooms": "",
-    "hasElevator": false,
-    "hasBalcony": false,
-    "hasParking": false,
-    "hasBrokerFee": false,
-    "images": [
-      "mlsjqzgu-v398pea.jpeg"
-    ],
-    "link": "",
-    "status": "חדש",
-    "createdAt": 1771450265305
-  },
-  {
     "id": "1771445788804",
     "title": "",
     "street": "רחבעם זאבי ",
@@ -31,9 +12,7 @@
     "hasParking": false,
     "hasBrokerFee": false,
     "notes": "מקלט מחוץ לבניין",
-    "images": [
-      "mlsjkzt3-ibtw75w.jpeg"
-    ],
+    "images": [],
     "link": "https://www.yad2.co.il/realestate/item/tel-aviv-area/sbzk7vv4?opened-from=feed&component-type=main_feed&spot=standard&location=15",
     "status": "חדש",
     "createdAt": 1771445788804,
@@ -54,7 +33,9 @@
     "hasParking": true,
     "hasBrokerFee": false,
     "images": [
-      "mlsj4nrd-3gljrv2.jpeg"
+      "mlslp2oz-7m4egub.jpeg",
+      "mlslp3z9-xt6779d.jpeg",
+      "mlslp4dh-b9vzlrw.jpeg"
     ],
     "link": "https://www.yad2.co.il/realestate/item/tel-aviv-area/s7fvl9ig?opened-from=feed&component-type=main_feed&spot=standard&location=12",
     "status": "חדש",
@@ -74,10 +55,17 @@
     "hasBalcony": false,
     "hasParking": true,
     "hasBrokerFee": false,
-    "images": [],
+    "images": [
+      "mlslmajv-21fvyfu.jpeg",
+      "mlslnp2h-vl51k29.jpeg",
+      "mlslnqfe-p25qicp.jpeg",
+      "mlslnqvh-uf5heos.jpeg"
+    ],
     "link": "https://www.yad2.co.il/realestate/item/tel-aviv-area/jx26bf2u?opened-from=feed&component-type=main_feed&spot=standard&location=8",
     "status": "חדש",
-    "createdAt": 1771445501544
+    "createdAt": 1771445501544,
+    "lat": 32.0159759,
+    "lon": 34.7663014
   },
   {
     "id": "1771443776447",
@@ -92,10 +80,15 @@
     "hasBalcony": false,
     "hasParking": false,
     "hasBrokerFee": false,
-    "images": [],
+    "images": [
+      "mlslq8oy-8zm9o8j.jpeg",
+      "mlslq96r-4h3a8fi.jpeg"
+    ],
     "link": "https://www.yad2.co.il/realestate/item/tel-aviv-area/i0vt7kn6?opened-from=feed&component-type=main_feed&spot=standard&location=7",
     "status": "חדש",
-    "createdAt": 1771443776447
+    "createdAt": 1771443776447,
+    "lat": 32.0146774,
+    "lon": 34.7649832
   },
   {
     "id": "1771443643786",
@@ -110,7 +103,13 @@
     "hasBalcony": false,
     "hasParking": true,
     "hasBrokerFee": false,
-    "images": [],
+    "images": [
+      "mlslrvmj-jdmsrn1.jpeg",
+      "mlslrx0g-pf82c3m.jpeg",
+      "mlslrxfe-lq7alty.jpeg",
+      "mlslrxtn-gp7yv19.jpeg",
+      "mlslry8w-fjwlwzf.jpeg"
+    ],
     "link": "https://www.yad2.co.il/realestate/item/tel-aviv-area/494jnhaj?opened-from=feed&component-type=main_feed&spot=standard&location=5",
     "status": "חדש",
     "createdAt": 1771443643786
@@ -128,78 +127,116 @@
     "hasBalcony": false,
     "hasParking": true,
     "hasBrokerFee": false,
-    "images": [],
+    "images": [
+      "mlsltjnn-gb3mhh1.jpeg",
+      "mlsltl38-bda0ka4.jpeg",
+      "mlsltlt5-t6kb0tz.jpeg",
+      "mlsltm8y-7ugqjj5.jpeg"
+    ],
     "link": "https://www.yad2.co.il/realestate/item/tel-aviv-area/tphj25hj?opened-from=feed&component-type=main_feed&spot=standard&location=4",
     "status": "חדש",
-    "createdAt": 1771443533066
+    "createdAt": 1771443533066,
+    "notes": "ירידת מחיר",
+    "lat": 32.0210652,
+    "lon": 34.7823507
   },
   {
     "id": "1771443392269",
     "title": "",
-    "street": "",
-    "city": "",
-    "price": 0,
-    "phone": "",
-    "rooms": "",
-    "hasElevator": false,
+    "street": "זאב ז'בוטינסקי 42",
+    "city": "חולון",
+    "price": 5400,
+    "phone": "050-7808059",
+    "rooms": "3",
+    "hasElevator": true,
     "hasBalcony": false,
-    "hasParking": false,
+    "hasParking": true,
     "hasBrokerFee": false,
-    "images": [],
+    "images": [
+      "mlsly3ze-bnz6b0f.jpeg",
+      "mlsly62b-gxjnv9t.png",
+      "mlsly6yw-xm7g8xr.jpeg"
+    ],
     "link": "https://www.yad2.co.il/realestate/item/tel-aviv-area/tigdbeg8?opened-from=feed&component-type=main_feed&spot=standard&location=3",
     "status": "חדש",
-    "createdAt": 1771443392269
+    "createdAt": 1771443392269,
+    "notes": "מקלט מחוץ לבניין",
+    "lat": 32.0249749,
+    "lon": 34.780372
   },
   {
     "id": "1771443304213",
     "title": "",
-    "street": "",
+    "street": "שיכון ותיקים",
     "city": "",
-    "price": 0,
+    "price": 5000,
     "phone": "",
-    "rooms": "",
-    "hasElevator": false,
+    "rooms": "3.5",
+    "hasElevator": true,
     "hasBalcony": false,
-    "hasParking": false,
+    "hasParking": true,
     "hasBrokerFee": false,
-    "images": [],
+    "images": [
+      "mlsm1ldy-6jff496.jpeg",
+      "mlsm1mt8-lygmpo6.jpeg",
+      "mlsm1n8a-a7ifdyh.jpeg",
+      "mlsm1nuj-c8f03zg.jpeg"
+    ],
     "link": "https://www.yad2.co.il/realestate/item/tel-aviv-area/xiawaoa9?opened-from=feed&component-type=main_feed&spot=platinum&location=1",
     "status": "חדש",
-    "createdAt": 1771443304213
+    "createdAt": 1771443304213,
+    "lat": 32.0210436,
+    "lon": 34.7523161
   },
   {
     "id": "1771442983098",
     "title": "",
-    "street": "",
-    "city": "",
-    "price": 0,
-    "phone": "",
+    "street": "נאות רחל",
+    "city": "חולון",
+    "price": 4500,
+    "phone": "052-3776626",
     "rooms": "",
     "hasElevator": false,
     "hasBalcony": false,
-    "hasParking": false,
+    "hasParking": true,
     "hasBrokerFee": false,
-    "images": [],
+    "images": [
+      "mlsm4x06-fod3f78.jpeg",
+      "mlsm4yel-c81mksx.jpeg",
+      "mlsm4ysx-qdfdol7.jpeg",
+      "mlsm4zl3-vd1y356.jpeg"
+    ],
     "link": "https://www.facebook.com/share/p/14SpcsqPFFM/",
     "status": "חדש",
-    "createdAt": 1771442983098
+    "createdAt": 1771442983098,
+    "floor": 2,
+    "lat": 32.0181091,
+    "lon": 34.7640805
   },
   {
     "id": "1771442854150",
     "title": "",
     "street": "",
-    "city": "",
+    "city": "חולון",
     "price": 0,
-    "phone": "",
-    "rooms": "",
-    "hasElevator": false,
+    "phone": "052-3639972",
+    "rooms": "3.5",
+    "hasElevator": true,
     "hasBalcony": false,
-    "hasParking": false,
+    "hasParking": true,
     "hasBrokerFee": false,
-    "images": [],
+    "images": [
+      "mlsm98he-3bjxt8m.jpeg",
+      "mlsm99w5-tdc0cs8.png",
+      "mlsm9as7-n0itr5o.jpeg",
+      "mlsm9b5g-nqcdzny.png"
+    ],
     "link": "https://www.facebook.com/share/p/1Mdy8qw98j/",
     "status": "חדש",
-    "createdAt": 1771442854150
+    "createdAt": 1771442854150,
+    "floor": 1,
+    "lat": 32.0193121,
+    "lon": 34.7804076
   },
   {
     "id": "1771429296767",

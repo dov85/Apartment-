@@ -570,6 +570,13 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
               transition: pinchRef.current ? 'none' : 'transform 0.2s ease-out',
             }}
             draggable={false}
+            onError={(e) => {
+              const img = property.images?.[galleryIndex];
+              const fallback = img ? directSupabaseUrl(img) : null;
+              if (fallback && (e.target as HTMLImageElement).src !== fallback) {
+                (e.target as HTMLImageElement).src = fallback;
+              }
+            }}
           />
         </div>
 
@@ -608,7 +615,18 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
                   i === galleryIndex ? 'border-white scale-110 shadow-lg' : 'border-transparent opacity-50 hover:opacity-80'
                 }`}
               >
-                <img src={url} className="w-full h-full object-cover" alt="" />
+                <img 
+                  src={url} 
+                  className="w-full h-full object-cover" 
+                  alt=""
+                  onError={(e) => {
+                    const img = property.images?.[i];
+                    const fallback = img ? directSupabaseUrl(img) : null;
+                    if (fallback && (e.target as HTMLImageElement).src !== fallback) {
+                      (e.target as HTMLImageElement).src = fallback;
+                    }
+                  }}
+                />
               </button>
             ))}
           </div>
