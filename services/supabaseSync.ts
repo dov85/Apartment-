@@ -51,27 +51,27 @@ export function getPublicDataUrl(path: string): string {
 
 // ─── Direct Supabase helpers (browser → Supabase) ─────────
 
-/** Upload a Blob/ArrayBuffer directly to Supabase Storage. */
+/** Upload a Blob/ArrayBuffer directly to Supabase Storage. Throws on failure. */
 async function directUpload(
   storagePath: string,
   body: Blob | Uint8Array,
   contentType: string,
-): Promise<boolean> {
+): Promise<void> {
   const url = `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${storagePath}`;
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        apikey: SERVICE_KEY,
-        Authorization: `Bearer ${SERVICE_KEY}`,
-        'Content-Type': contentType,
-        'x-upsert': 'true',
-      },
-      body,
-    });
-    return res.ok;
-  } catch {
-    return false;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      apikey: SERVICE_KEY,
+      Authorization: `Bearer ${SERVICE_KEY}`,
+      'Content-Type': contentType,
+      'x-upsert': 'true',
+    },
+    body,
+  });
+  if (!res.ok) {
+    let detail = '';
+    try { const j = await res.json(); detail = j.message || j.error || JSON.stringify(j); } catch { try { detail = await res.text(); } catch {} }
+    throw new Error(`Upload failed (${res.status}): ${detail}`);
   }
 }
 
@@ -141,7 +141,13 @@ export async function saveApartmentsToCloud(data: Property[]): Promise<boolean> 
   // Direct mode
   const json = JSON.stringify(data);
   const blob = new Blob([json], { type: 'application/json' });
-  return directUpload('data/apartments.json', blob, 'application/json');
+  try {
+    await directUpload('data/apartments.json', blob, 'application/json');
+    return true;
+  } catch (e) {
+    console.error('Cloud data save failed:', e);
+    return false;
+  }
 }
 
 /**
@@ -175,9 +181,8 @@ export async function uploadImageToCloud(dataUrl: string): Promise<string> {
   const ext = mime.split('/')[1]?.split('+')[0]?.split(';')[0] || 'png';
   const key =
     Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9) + '.' + ext;
-  console.log('Uploading image to Supabase:', key, 'size:', blob.size, 'type:', mime);
-  const ok = await directUpload(`images/${key}`, blob, mime);
-  if (!ok) throw new Error('Direct Supabase image upload failed for key: ' + key);
+  console.log('Uploading image to Supabase:', key, 'size:', (blob.size / 1024).toFixed(0) + 'KB', 'type:', mime);
+  await directUpload(`images/${key}`, blob, mime);
   console.log('Image uploaded successfully:', key);
   return key;
 }

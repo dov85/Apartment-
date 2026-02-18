@@ -32,27 +32,22 @@ export async function deleteFileImage(key: string): Promise<void> {
 // ── Unified helpers (handle both file:// and idb:// refs) ──
 
 export async function saveImageDataUrl(dataUrl: string): Promise<string> {
-  // Always upload to Supabase cloud (primary storage)
-  try {
-    const key = await uploadImageToCloud(dataUrl);
-    console.log('Image saved to Supabase cloud ☁️:', key);
-    return key;
-  } catch (e) {
-    console.warn('Cloud image upload failed, falling back to IDB', e);
+  // Upload to Supabase cloud — this MUST succeed for cross-device access
+  // Retry once on failure before giving up
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const key = await uploadImageToCloud(dataUrl);
+      console.log('Image saved to Supabase cloud ☁️:', key);
+      return key;
+    } catch (e) {
+      lastError = e as Error;
+      console.warn(`Cloud upload attempt ${attempt + 1} failed:`, e);
+      if (attempt === 0) await new Promise(r => setTimeout(r, 1000)); // wait 1s before retry
+    }
   }
-
-  // Final fallback: IndexedDB
-  const res = await fetch(dataUrl);
-  const blob = await res.blob();
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('images', 'readwrite');
-    const store = tx.objectStore('images');
-    const key = 'idb-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9);
-    store.put({ key, blob });
-    tx.oncomplete = () => { db.close(); resolve(key); };
-    tx.onerror = () => { db.close(); reject(tx.error); };
-  });
+  // Both attempts failed — throw with the actual error so the user sees it
+  throw new Error(`העלאת תמונה לענן נכשלה: ${lastError?.message || 'Unknown error'}`);
 }
 
 /**
