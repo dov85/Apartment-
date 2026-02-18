@@ -2,6 +2,14 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Property, PropertyStatus } from '../types.ts';
 import { getImageObjectURL } from '../utils/idbImages';
+import { getPublicImageUrl } from '../services/supabaseSync';
+
+/** Compute a direct Supabase URL for a simple image key (non-idb, non-data). */
+function directSupabaseUrl(key: string | undefined | null): string | null {
+  if (!key || typeof key !== 'string') return null;
+  if (key.startsWith('data:') || key.startsWith('blob:') || key.startsWith('idb-') || key.startsWith('idb://')) return null;
+  return getPublicImageUrl(key.startsWith('file://') ? key.replace('file://', '') : key);
+}
 
 interface PropertyCardProps {
   property: Property;
@@ -52,6 +60,9 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
   const [resolvedMainImage, setResolvedMainImage] = useState<string | null>(null);
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const [imageRetryCount, setImageRetryCount] = useState(0);
+
+  // Synchronous fallback: compute Supabase URL directly for simple keys
+  const fallbackImageUrl = directSupabaseUrl(mainImage);
 
   // Gallery lightbox state
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -145,8 +156,10 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
           const key = img.startsWith('idb://') ? img.replace('idb://', '') : img;
           try {
             const url = await getImageObjectURL(key);
-            urls.push(url || '');
-          } catch { urls.push(''); }
+            urls.push(url || directSupabaseUrl(img) || '');
+          } catch { 
+            urls.push(directSupabaseUrl(img) || ''); 
+          }
         }
       }
       if (active) setResolvedGalleryImages(urls.filter(Boolean));
@@ -181,9 +194,9 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
     <>
     <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-xl transition-all group flex flex-col h-full">
       <div className="relative h-64 bg-slate-100 shrink-0 cursor-pointer" onClick={openGallery}>
-        {resolvedMainImage && !imageLoadFailed ? (
+        {(resolvedMainImage || fallbackImageUrl) && !imageLoadFailed ? (
           <img 
-            src={resolvedMainImage} 
+            src={resolvedMainImage || fallbackImageUrl!} 
             alt={displayTitle(property)} 
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
             onError={() => { 
