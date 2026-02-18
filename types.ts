@@ -18,7 +18,11 @@ export interface Property {
   price: number;
   phone: string;
   rooms: string;
-  images: string[]; // Changed from 'image' to 'images' array
+  floor?: number;
+  hasElevator?: boolean;
+  hasBalcony?: boolean;
+  rating?: number;  // 1-10
+  images: string[];
   link: string;
   status: PropertyStatus;
   createdAt: number;

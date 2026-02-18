@@ -28,6 +28,11 @@ const App: React.FC = () => {
   const [rooms, setRooms] = useState('');
   const [phone, setPhone] = useState('');
   const [link, setLink] = useState('');
+  const [floor, setFloor] = useState('');
+  const [hasElevator, setHasElevator] = useState(false);
+  const [hasBalcony, setHasBalcony] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [sortBy, setSortBy] = useState<'date' | 'price' | 'rating'>('date');
 
   const pollInterval = useRef<any>(null);
   const modalOverlayRef = useRef<HTMLDivElement | null>(null);
@@ -274,6 +279,10 @@ const App: React.FC = () => {
     setRooms(prop.rooms || '');
     setPhone(prop.phone || '');
     setLink(prop.link || '');
+    setFloor(prop.floor != null ? String(prop.floor) : '');
+    setHasElevator(prop.hasElevator || false);
+    setHasBalcony(prop.hasBalcony || false);
+    setRating(prop.rating || 0);
 
     // Resolve stored image refs to displayable URLs, keep original refs
     const refs = prop.images || [];
@@ -317,6 +326,10 @@ const App: React.FC = () => {
       price: parseInt(price) || 0,
       phone: phone || '',
       rooms: rooms || '',
+      floor: floor ? parseInt(floor) : undefined,
+      hasElevator,
+      hasBalcony,
+      rating: rating || undefined,
       images: imageRefs,
       link: link || '',
       status: PropertyStatus.NEW,
@@ -386,6 +399,10 @@ const App: React.FC = () => {
     setRooms('');
     setPhone('');
     setLink('');
+    setFloor('');
+    setHasElevator(false);
+    setHasBalcony(false);
+    setRating(0);
     setEditingId(null);
   };
 
@@ -517,9 +534,36 @@ const App: React.FC = () => {
 
       <main className="max-w-5xl mx-auto p-4 md:p-6">
         <MapView properties={properties} previewCoords={previewCoords} />
+
+        {/* Sort bar */}
+        {properties.length > 1 && (
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <span className="text-xs font-black text-slate-400 uppercase tracking-wider">מיין לפי:</span>
+            {([['date', 'תאריך'], ['rating', 'דירוג ⭐'], ['price', 'מחיר ₪']] as const).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setSortBy(key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  sortBy === key
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {properties.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
-            {properties.map(property => (
+            {[...properties]
+              .sort((a, b) => {
+                if (sortBy === 'rating') return (b.rating || 0) - (a.rating || 0);
+                if (sortBy === 'price') return (a.price || 0) - (b.price || 0);
+                return (b.createdAt || 0) - (a.createdAt || 0);
+              })
+              .map(property => (
               <PropertyCard 
                 key={property.id} 
                 property={property} 
@@ -716,6 +760,66 @@ const App: React.FC = () => {
                     onChange={(e) => setLink(e.target.value)}
                     className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl md:rounded-2xl p-3 md:p-4 text-slate-800 font-bold focus:border-indigo-500 focus:bg-white outline-none transition-all"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">קומה</label>
+                  <input 
+                    type="number"
+                    placeholder="0"
+                    value={floor}
+                    onChange={(e) => setFloor(e.target.value)}
+                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl md:rounded-2xl p-3 md:p-4 text-slate-800 font-bold focus:border-indigo-500 focus:bg-white outline-none transition-all"
+                  />
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input 
+                      type="checkbox"
+                      checked={hasElevator}
+                      onChange={(e) => setHasElevator(e.target.checked)}
+                      className="w-5 h-5 rounded-lg border-2 border-slate-200 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm font-bold text-slate-700">🛗 מעלית</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input 
+                      type="checkbox"
+                      checked={hasBalcony}
+                      onChange={(e) => setHasBalcony(e.target.checked)}
+                      className="w-5 h-5 rounded-lg border-2 border-slate-200 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm font-bold text-slate-700">🏞️ מרפסת</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Rating */}
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">דירוג ({rating}/10)</label>
+                <div className="flex gap-1 items-center" dir="ltr">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setRating(rating === star ? 0 : star)}
+                      className={`text-2xl transition-all hover:scale-125 ${
+                        star <= rating ? 'text-yellow-400 drop-shadow-sm' : 'text-slate-200 hover:text-yellow-200'
+                      }`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                  {rating > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setRating(0)}
+                      className="text-xs text-slate-400 hover:text-red-400 mr-2 font-bold"
+                    >
+                      נקה
+                    </button>
+                  )}
                 </div>
               </div>
 

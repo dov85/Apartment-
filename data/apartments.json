@@ -1,0 +1,82 @@
+[
+  {
+    "id": "1771376997624",
+    "title": "דירה חדשה",
+    "street": "צבי שץ",
+    "city": "",
+    "price": 3400,
+    "phone": "0546788722",
+    "rooms": "2.5",
+    "images": [
+      "mlrcqdcg-6lmzl8i.png",
+      "mlrcqdd8-j3ao2fo.png"
+    ],
+    "link": "https://www.facebook.com/groups/963153170558917/permalink/2978190609055153/?mibextid=wwXIfr&rdid=UR2PUbZEs4HeEiAV#",
+    "status": "חדש",
+    "createdAt": 1771378011414,
+    "lat": 31.8685757,
+    "lon": 34.7443858
+  },
+  {
+    "id": "1771376857898",
+    "title": "דירה חדשה",
+    "street": "סוקולוב",
+    "city": "",
+    "price": 4500,
+    "phone": "0549577976",
+    "rooms": "3",
+    "images": [
+      "mlrcs5oq-dvhvhjj.png",
+      "mlrcs5pj-keasmyq.png"
+    ],
+    "link": "https://www.facebook.com/groups/963153170558917/permalink/2978334569040757/?mibextid=wwXIfr&rdid=aZZsIQ1AjW3wXvnP#",
+    "status": "חדש",
+    "createdAt": 1771378094637,
+    "lat": 32.1672053,
+    "lon": 34.8444204
+  },
+  {
+    "id": "1771375294985",
+    "title": "דירה חדשה",
+    "street": "זלמן שזר",
+    "city": "",
+    "price": 5000,
+    "phone": "050-4085089",
+    "rooms": "3",
+    "images": [
+      "mlru0m82-0ex5ov6.png",
+      "mlru0m8r-nwga2zg.png",
+      "mlru0m9i-nbll2tb.png",
+      "mlru0man-1jmmx3p.png",
+      "mlru0mbu-aeevgy0.png"
+    ],
+    "link": "https://www.facebook.com/groups/209532723285567/permalink/1606740633564762/?mibextid=wwXIfr&rdid=aATlrivkmY8PBl28#",
+    "status": "חדש",
+    "createdAt": 1771407042528,
+    "lat": 31.9965047,
+    "lon": 34.7402313
+  },
+  {
+    "id": "1771372912795",
+    "title": "דירה חדשה",
+    "address": "הרב רובינשטיין",
+    "price": 4600,
+    "phone": "050-4085089",
+    "rooms": "3",
+    "images": [
+      "mlrtycv7-y2t3v1n.png",
+      "mlrtycvx-33ieho0.png",
+      "mlrtycwl-iqjrom4.png",
+      "mlrtycxi-q4y0n0q.png",
+      "mlrtycyg-dtad69i.png",
+      "mlrtyczd-0wa3rb7.png"
+    ],
+    "link": "https://www.facebook.com/groups/209532723285567/permalink/1606740886898070/?mibextid=wwXIfr&rdid=FTq5B1L79Hkn0Ihq#",
+    "status": "חדש",
+    "createdAt": 1771406936838,
+    "street": "הרב רובינשטיין",
+    "city": "יפו",
+    "lat": 32.0351896,
+    "lon": 34.755706
+  }
+]

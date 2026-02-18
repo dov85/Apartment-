@@ -137,7 +137,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 mb-6">
+        <div className="grid grid-cols-2 gap-3 mb-4">
           <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
             <span className="block text-[10px] font-black text-slate-400 uppercase mb-1">מחיר</span>
             <span className="text-xl font-black text-indigo-600">₪{property.price?.toLocaleString() || '0'}</span>
@@ -147,6 +147,29 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
             <span className="text-xl font-black text-slate-800">{property.rooms || '-'}</span>
           </div>
         </div>
+
+        {/* Floor / Elevator / Balcony row */}
+        <div className="flex flex-wrap items-center gap-2 mb-3 text-xs font-bold">
+          {property.floor != null && (
+            <span className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg">🏢 קומה {property.floor}</span>
+          )}
+          {property.hasElevator && (
+            <span className="bg-green-50 text-green-700 px-2.5 py-1 rounded-lg">🛗 מעלית</span>
+          )}
+          {property.hasBalcony && (
+            <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg">🏞️ מרפסת</span>
+          )}
+        </div>
+
+        {/* Rating stars */}
+        {property.rating != null && property.rating > 0 && (
+          <div className="flex items-center gap-1 mb-4" dir="ltr">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => (
+              <span key={star} className={`text-sm ${star <= (property.rating || 0) ? 'text-yellow-400' : 'text-slate-200'}`}>★</span>
+            ))}
+            <span className="text-xs font-black text-slate-500 mr-1">{property.rating}/10</span>
+          </div>
+        )}
 
         <div className="space-y-3 mt-auto">
           <div className="flex gap-2">

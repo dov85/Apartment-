@@ -23,6 +23,5 @@ dist-ssr
 *.sln
 *.sw?
 
-# User data (saved locally)
-data/
+# Temp files
 setup-supabase.cjs
