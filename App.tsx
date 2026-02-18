@@ -56,6 +56,15 @@ const App: React.FC = () => {
 
       // Cleanup: remove broken idb:// refs whose blobs no longer exist in IndexedDB
       let changed = false;
+
+      // Migrate "דירה חדשה" titles to empty (will show address instead)
+      for (const prop of data) {
+        if (prop.title === 'דירה חדשה') {
+          prop.title = '';
+          changed = true;
+        }
+      }
+
       for (const prop of data) {
         if (!prop.images || !prop.images.length) continue;
         const validImages: string[] = [];
@@ -315,7 +324,7 @@ const App: React.FC = () => {
     console.log('handleFinalSave - editingId:', editingId);
     const newPropBase = {
       id: Date.now().toString(),
-      title: title || 'דירה חדשה',
+      title: title || '',
       street: street || '',
       city: city || '',
       price: parseInt(price) || 0,

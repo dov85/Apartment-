@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Property, PropertyStatus } from '../types.ts';
 import { getImageObjectURL } from '../utils/idbImages';
 
@@ -10,9 +10,17 @@ interface PropertyCardProps {
   onUpdate?: (id: string, updates: Partial<Property>) => void;
 }
 
+/** Build a display title: user title → street+city → fallback */
+function displayTitle(p: Property): string {
+  if (p.title && p.title !== 'דירה חדשה') return p.title;
+  const parts = [p.street, p.city].filter(Boolean);
+  return parts.length > 0 ? parts.join(', ') : 'ללא כותרת';
+}
+
 const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, onEdit, onUpdate }) => {
   const [showNotes, setShowNotes] = useState(false);
   const [localNotes, setLocalNotes] = useState(property.notes || '');
+  const [expanded, setExpanded] = useState(false);
   const notesTimer = React.useRef<any>(null);
 
   // Sync local notes when property changes externally
@@ -47,6 +55,57 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [resolvedGalleryImages, setResolvedGalleryImages] = useState<string[]>([]);
+
+  // Pinch-to-zoom state
+  const [zoomScale, setZoomScale] = useState(1);
+  const [zoomTranslate, setZoomTranslate] = useState({ x: 0, y: 0 });
+  const pinchRef = useRef<{ startDist: number; startScale: number } | null>(null);
+  const panRef = useRef<{ lastX: number; lastY: number } | null>(null);
+  const imgContainerRef = useRef<HTMLDivElement>(null);
+
+  // Reset zoom when changing image
+  useEffect(() => { setZoomScale(1); setZoomTranslate({ x: 0, y: 0 }); }, [galleryIndex]);
+
+  const getTouchDist = (t1: React.Touch, t2: React.Touch) =>
+    Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      pinchRef.current = { startDist: getTouchDist(e.touches[0], e.touches[1]), startScale: zoomScale };
+    } else if (e.touches.length === 1 && zoomScale > 1) {
+      panRef.current = { lastX: e.touches[0].clientX, lastY: e.touches[0].clientY };
+    }
+  }, [zoomScale]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinchRef.current) {
+      e.preventDefault();
+      const dist = getTouchDist(e.touches[0], e.touches[1]);
+      const newScale = Math.min(5, Math.max(1, pinchRef.current.startScale * (dist / pinchRef.current.startDist)));
+      setZoomScale(newScale);
+      if (newScale <= 1) setZoomTranslate({ x: 0, y: 0 });
+    } else if (e.touches.length === 1 && panRef.current && zoomScale > 1) {
+      const dx = e.touches[0].clientX - panRef.current.lastX;
+      const dy = e.touches[0].clientY - panRef.current.lastY;
+      panRef.current = { lastX: e.touches[0].clientX, lastY: e.touches[0].clientY };
+      setZoomTranslate(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+    }
+  }, [zoomScale]);
+
+  const handleTouchEnd = useCallback(() => {
+    pinchRef.current = null;
+    panRef.current = null;
+  }, []);
+
+  const handleDoubleClick = useCallback(() => {
+    if (zoomScale > 1) {
+      setZoomScale(1);
+      setZoomTranslate({ x: 0, y: 0 });
+    } else {
+      setZoomScale(3);
+    }
+  }, [zoomScale]);
 
   useEffect(() => {
     let active = true;
@@ -120,7 +179,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
         {resolvedMainImage ? (
           <img 
             src={resolvedMainImage} 
-            alt={property.title} 
+            alt={displayTitle(property)} 
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
           />
         ) : (
@@ -150,30 +209,45 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
       </div>
       
       <div className="p-6 flex flex-col flex-1">
-        <div className="mb-4">
-          <h3 className="font-black text-2xl text-slate-800 truncate mb-1">
-            {property.title || 'ללא כותרת'}
-          </h3>
-          <p className="text-slate-500 text-sm font-bold flex items-center">
-            <svg className="w-4 h-4 ml-1 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+        {/* Always visible: title + address + price + rooms */}
+        <div className="cursor-pointer" onClick={() => setExpanded(!expanded)}>
+          <div className="mb-4">
+            <h3 className="font-black text-2xl text-slate-800 truncate mb-1">
+              {displayTitle(property)}
+            </h3>
+            {/* Show address line only if title is custom (not same as address) */}
+            {property.title && property.title !== 'דירה חדשה' && (property.street || property.city) && (
+              <p className="text-slate-500 text-sm font-bold flex items-center">
+                <svg className="w-4 h-4 ml-1 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                </svg>
+                {((property.street || '') + (property.city ? (', ' + property.city) : '')) || 'לא צויינה כתובת'}
+              </p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <span className="block text-[10px] font-black text-slate-400 uppercase mb-1">מחיר</span>
+              <span className="text-xl font-black text-indigo-600">₪{property.price?.toLocaleString() || '0'}</span>
+            </div>
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
+              <span className="block text-[10px] font-black text-slate-400 uppercase mb-1">חדרים</span>
+              <span className="text-xl font-black text-slate-800">{property.rooms || '-'}</span>
+            </div>
+          </div>
+
+          {/* Expand/collapse indicator */}
+          <div className="flex justify-center">
+            <svg className={`w-5 h-5 text-slate-300 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
             </svg>
-            {((property.street || '') + (property.city ? (', ' + property.city) : '')) || 'לא צויינה כתובת'}
-          </p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-            <span className="block text-[10px] font-black text-slate-400 uppercase mb-1">מחיר</span>
-            <span className="text-xl font-black text-indigo-600">₪{property.price?.toLocaleString() || '0'}</span>
-          </div>
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
-            <span className="block text-[10px] font-black text-slate-400 uppercase mb-1">חדרים</span>
-            <span className="text-xl font-black text-slate-800">{property.rooms || '-'}</span>
           </div>
         </div>
 
-        {/* Floor / Elevator / Balcony / Parking / Broker row */}
+        {/* Expanded details */}
+        {expanded && (
+          <div className="mt-3 animate-[fadeIn_0.2s_ease-out]">
         <div className="flex flex-wrap items-center gap-2 mb-3 text-xs font-bold">
           {property.floor != null && (
             <span className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg">🏢 קומה {property.floor}</span>
@@ -285,6 +359,8 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
             </button>
           </div>
         </div>
+          </div>
+        )}
       </div>
     </div>
 
@@ -309,12 +385,25 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
           {galleryIndex + 1} / {resolvedGalleryImages.length}
         </div>
 
-        {/* Main image */}
-        <div className="flex-1 flex items-center justify-center w-full px-16" onClick={(e) => e.stopPropagation()}>
+        {/* Main image — pinch-to-zoom + double-tap */}
+        <div
+          ref={imgContainerRef}
+          className="flex-1 flex items-center justify-center w-full px-4 sm:px-16 overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onDoubleClick={handleDoubleClick}
+          style={{ touchAction: zoomScale > 1 ? 'none' : 'pan-y' }}
+        >
           <img
             src={resolvedGalleryImages[galleryIndex]}
-            alt={`${property.title} - ${galleryIndex + 1}`}
+            alt={`${displayTitle(property)} - ${galleryIndex + 1}`}
             className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl select-none"
+            style={{
+              transform: `scale(${zoomScale}) translate(${zoomTranslate.x / zoomScale}px, ${zoomTranslate.y / zoomScale}px)`,
+              transition: pinchRef.current ? 'none' : 'transform 0.2s ease-out',
+            }}
             draggable={false}
           />
         </div>
