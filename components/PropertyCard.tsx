@@ -201,7 +201,12 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
             onError={() => { 
               console.error('Image failed to load:', resolvedMainImage?.substring(0, 100)); 
-              if (imageRetryCount < 2) {
+              if (imageRetryCount === 0 && fallbackImageUrl && resolvedMainImage !== fallbackImageUrl) {
+                // First failure: try Supabase direct URL instead of local server URL
+                console.log('Falling back to Supabase URL:', fallbackImageUrl);
+                setImageRetryCount(1);
+                setResolvedMainImage(fallbackImageUrl);
+              } else if (imageRetryCount < 3) {
                 // Retry with cache-busting
                 setImageRetryCount(prev => prev + 1);
                 const sep = resolvedMainImage?.includes('?') ? '&' : '?';

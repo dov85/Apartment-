@@ -71,11 +71,20 @@ export async function getImageObjectURL(key: string): Promise<string | null> {
   if (!key.startsWith('idb-')) {
     const server = await isServerAvailable();
     if (server) {
-      const url = getFileImageURL(bareKey);
-      console.log('getImageObjectURL server:', key, '→', url);
-      return url;
+      // Verify the file exists on the local server before returning local URL.
+      // Images uploaded in standalone mode (phone/GitHub Pages) are only in Supabase.
+      const localUrl = getFileImageURL(bareKey);
+      try {
+        const check = await fetch(localUrl, { method: 'HEAD' });
+        if (check.ok) {
+          console.log('getImageObjectURL server:', key, '→', localUrl);
+          return localUrl;
+        }
+      } catch { /* local file not available */ }
+      // Local file missing – fall back to Supabase public URL
+      console.log('getImageObjectURL server→supabase fallback:', key);
     }
-    // Standalone: use Supabase public URL
+    // Standalone or local-missing: use Supabase public URL
     const url = getPublicImageUrl(bareKey);
     console.log('getImageObjectURL standalone:', key, '→', url);
     return url;
