@@ -35,6 +35,7 @@ const App: React.FC = () => {
   const [hasBrokerFee, setHasBrokerFee] = useState(false);
   const [rating, setRating] = useState(0);
   const [notes, setNotes] = useState('');
+  const [formStatus, setFormStatus] = useState<PropertyStatus>(PropertyStatus.NEW);
   const [sortBy, setSortBy] = useState<'date' | 'price' | 'rating'>('date');
   const [storageUsage, setStorageUsage] = useState<{ totalBytes: number; fileCount: number } | null>(null);
 
@@ -293,6 +294,7 @@ const App: React.FC = () => {
     setHasBrokerFee(prop.hasBrokerFee || false);
     setRating(prop.rating || 0);
     setNotes(prop.notes || '');
+    setFormStatus(prop.status || PropertyStatus.NEW);
 
     // Resolve stored image refs to displayable URLs, keep original refs
     const refs = prop.images || [];
@@ -345,7 +347,7 @@ const App: React.FC = () => {
       notes: notes || undefined,
       images: imageRefs,
       link: link || '',
-      status: PropertyStatus.NEW,
+      status: editingId ? formStatus : PropertyStatus.NEW,
       createdAt: Date.now(),
     } as any;
 
@@ -419,6 +421,7 @@ const App: React.FC = () => {
     setHasBrokerFee(false);
     setRating(0);
     setNotes('');
+    setFormStatus(PropertyStatus.NEW);
     setEditingId(null);
   };
 
@@ -904,6 +907,21 @@ const App: React.FC = () => {
                     </button>
                   )}
                 </div>
+              </div>
+
+              {/* סטטוס */}
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">סטטוס</label>
+                <select
+                  value={formStatus}
+                  onChange={(e) => setFormStatus(e.target.value as PropertyStatus)}
+                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl md:rounded-2xl p-3 md:p-4 text-slate-800 font-bold focus:border-indigo-500 focus:bg-white outline-none transition-all"
+                  dir="rtl"
+                >
+                  {Object.values(PropertyStatus).map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
               </div>
 
               {/* הערות */}

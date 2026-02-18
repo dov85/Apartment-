@@ -1,7 +1,7 @@
 [
   {
     "id": "1771429296767",
-    "title": "דירה חדשה",
+    "title": "לביאה",
     "street": "אגרובנק",
     "city": "",
     "price": 5100,
@@ -9,7 +9,7 @@
     "rooms": "3",
     "hasElevator": true,
     "hasBalcony": false,
-    "notes": "יש חניה",
+    "notes": "נראה שבוע הבא הה",
     "images": [
       "mls79lhq-0g71cvl.png",
       "mls79lp1-ogn9ax5.png",
@@ -19,13 +19,15 @@
     ],
     "link": "https://www.facebook.com/groups/963153170558917/permalink/2971055879768626/?mibextid=wwXIfr&rdid=4MXzirppcSrimnZk#",
     "status": "חדש",
-    "createdAt": 1771429332403,
+    "createdAt": 1771437515407,
     "lat": 32.0238634,
-    "lon": 34.781111
+    "lon": 34.781111,
+    "hasParking": true,
+    "hasBrokerFee": false
   },
   {
     "id": "1771429144431",
-    "title": "דירה חדשה",
+    "title": "",
     "street": "הרצפלד",
     "city": "",
     "price": 4300,
@@ -47,32 +49,8 @@
     "hasBrokerFee": false
   },
   {
-    "id": "1771428846824",
-    "title": "דירה חדשה",
-    "street": "",
-    "city": "חולון",
-    "price": 4500,
-    "phone": "050-5543585",
-    "rooms": "2.5",
-    "hasElevator": false,
-    "hasBalcony": false,
-    "notes": "אין חניה",
-    "images": [
-      "mls6zybm-au6lnti.png",
-      "mls6zyif-d9vh8g3.png",
-      "mls6zyli-yk4dwyg.png",
-      "mls6zysr-q2ho0q3.png",
-      "mls6zyvq-0oinxp1.png"
-    ],
-    "link": "https://www.facebook.com/groups/509654872819955/permalink/2408603616258395/?mibextid=wwXIfr&rdid=SZeJ3mmGaO3x1l3Q#",
-    "status": "חדש",
-    "createdAt": 1771428846824,
-    "lat": 32.0193121,
-    "lon": 34.7804076
-  },
-  {
     "id": "1771428670667",
-    "title": "דירה חדשה",
+    "title": "",
     "street": "שי עגנון",
     "city": "חולון",
     "price": 6500,
@@ -94,16 +72,16 @@
   },
   {
     "id": "1771428536613",
-    "title": "דירה חדשה",
-    "street": "",
-    "city": "",
+    "title": "",
+    "street": "ברנר",
+    "city": "בת ים",
     "price": 4550,
     "phone": "",
     "rooms": "3.5",
     "floor": 3,
     "hasElevator": false,
     "hasBalcony": false,
-    "notes": "לראות שני בערב",
+    "notes": "לראות שני בערב לבחור שיוצא קוראים אלון",
     "images": [
       "mls6tax2-3oxirou.png",
       "mls6tb4g-5bkearr.png",
@@ -111,12 +89,16 @@
       "mls6tbew-ssngzvu.png"
     ],
     "link": "https://www.facebook.com/groups/509654872819955/permalink/2409107186208038/?mibextid=wwXIfr&rdid=aADQw9O7jJlk185Y#",
-    "status": "חדש",
-    "createdAt": 1771428536613
+    "status": "בוצעה שיחה",
+    "createdAt": 1771434580061,
+    "hasParking": false,
+    "hasBrokerFee": false,
+    "lat": 32.0175774,
+    "lon": 34.7475684
   },
   {
     "id": "1771428404084",
-    "title": "דירה חדשה",
+    "title": "",
     "street": "רסקו",
     "city": "חולון",
     "price": 5200,
@@ -138,7 +120,7 @@
   },
   {
     "id": "1771428255751",
-    "title": "דירה חדשה",
+    "title": "",
     "street": "דנין",
     "city": "בת ים",
     "price": 4900,
@@ -158,7 +140,7 @@
   },
   {
     "id": "1771428099694",
-    "title": "דירה חדשה",
+    "title": "",
     "street": "הר הצופים",
     "city": "חולון",
     "price": 6198,
@@ -182,7 +164,7 @@
   },
   {
     "id": "1771427946591",
-    "title": "דירה חדשה",
+    "title": "",
     "street": "התחייה 28",
     "city": "חולון",
     "price": 6100,
@@ -203,7 +185,7 @@
   },
   {
     "id": "1771427780746",
-    "title": "דירה חדשה",
+    "title": "",
     "street": "דנין",
     "city": "בת ים",
     "price": 0,
@@ -229,7 +211,7 @@
   },
   {
     "id": "1771376857898",
-    "title": "דירה חדשה",
+    "title": "",
     "street": "סוקולוב",
     "city": "חולון",
     "price": 4500,
@@ -249,7 +231,7 @@
   },
   {
     "id": "1771375294985",
-    "title": "דירה חדשה",
+    "title": "",
     "street": "זלמן שזר",
     "city": "",
     "price": 5000,
@@ -273,7 +255,7 @@
   },
   {
     "id": "1771372912795",
-    "title": "דירה חדשה",
+    "title": "",
     "address": "הרב רובינשטיין",
     "price": 4600,
     "phone": "050-4085089",
