@@ -51,6 +51,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
   const mainImage = property.images && property.images.length > 0 ? property.images[0] : null;
   const [resolvedMainImage, setResolvedMainImage] = useState<string | null>(null);
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
+  const [imageRetryCount, setImageRetryCount] = useState(0);
 
   // Gallery lightbox state
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -111,6 +112,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
   useEffect(() => {
     let active = true;
     setImageLoadFailed(false);
+    setImageRetryCount(0);
     const resolve = async () => {
       const img = property.images && property.images.length > 0 ? property.images[0] : null;
       if (!img) { setResolvedMainImage(null); return; }
@@ -184,14 +186,32 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
             src={resolvedMainImage} 
             alt={displayTitle(property)} 
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-            onError={() => { console.error('Image failed to load:', resolvedMainImage?.substring(0, 100)); setImageLoadFailed(true); }}
+            onError={() => { 
+              console.error('Image failed to load:', resolvedMainImage?.substring(0, 100)); 
+              if (imageRetryCount < 2) {
+                // Retry with cache-busting
+                setImageRetryCount(prev => prev + 1);
+                const sep = resolvedMainImage?.includes('?') ? '&' : '?';
+                setResolvedMainImage(prev => prev + sep + '_r=' + Date.now());
+              } else {
+                setImageLoadFailed(true); 
+              }
+            }}
           />
         ) : imageLoadFailed ? (
-          <div className="flex flex-col items-center justify-center h-full text-red-400 gap-2 p-4">
+          <div className="flex flex-col items-center justify-center h-full text-red-400 gap-2 p-4" onClick={(e) => { e.stopPropagation(); setImageLoadFailed(false); setImageRetryCount(0); }}>
             <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
             <span className="text-xs text-center">שגיאה בטעינת תמונה</span>
+            <span className="text-[10px] text-red-300">לחץ לנסות שוב</span>
+          </div>
+        ) : !resolvedMainImage && property.images && property.images.length > 0 ? (
+          <div className="flex items-center justify-center h-full text-indigo-300">
+            <svg className="w-8 h-8 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
           </div>
         ) : (
           <div className="flex items-center justify-center h-full text-slate-300">

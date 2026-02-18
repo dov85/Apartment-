@@ -39,6 +39,14 @@ const App: React.FC = () => {
   const [formStatus, setFormStatus] = useState<PropertyStatus>(PropertyStatus.NEW);
   const [sortBy, setSortBy] = useState<'date' | 'price' | 'rating'>('date');
   const [storageUsage, setStorageUsage] = useState<{ totalBytes: number; fileCount: number } | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const toastTimer = useRef<any>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info', duration = 4000) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ message, type });
+    toastTimer.current = setTimeout(() => setToast(null), duration);
+  };
 
   const refreshStorageUsage = () => {
     getCloudStorageUsage().then(u => setStorageUsage(u)).catch(() => {});
@@ -381,7 +389,7 @@ const App: React.FC = () => {
 
       console.log('All images processed. Final refs:', finalImageRefs);
       if (imageRefs.length > 0 && finalImageRefs.length === 0) {
-        alert('⚠️ כל התמונות נכשלו בהעלאה! נסה שוב.');
+        showToast('כל התמונות נכשלו בהעלאה! נסה שוב.', 'error', 8000);
       }
 
       // 3. Build the new property object
@@ -444,9 +452,10 @@ const App: React.FC = () => {
       if (cloudOk) {
         console.log('Saved to Supabase cloud ☁️ ✓');
         refreshStorageUsage();
+        showToast(`✓ נשמר בהצלחה! (${finalImageRefs.length} תמונות)`, 'success', 3000);
       } else {
         console.error('Cloud save FAILED');
-        alert('⚠️ השמירה לענן נכשלה! הנתונים נשמרו מקומית בלבד.');
+        showToast('השמירה לענן נכשלה! הנתונים נשמרו מקומית בלבד.', 'error', 8000);
       }
 
       // Debug: verify images saved
@@ -457,7 +466,7 @@ const App: React.FC = () => {
 
     } catch (e) {
       console.error('handleFinalSave error:', e);
-      alert('שגיאה בשמירה: ' + (e as Error).message);
+      showToast('שגיאה בשמירה: ' + (e as Error).message, 'error', 8000);
     } finally {
       setIsSavingProperty(false);
       resetForm();
@@ -616,6 +625,19 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
+      {/* Toast notification */}
+      {toast && (
+        <div 
+          className={`fixed top-4 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 rounded-2xl shadow-2xl text-sm font-bold max-w-[90vw] text-center transition-all ${
+            toast.type === 'success' ? 'bg-green-500 text-white' :
+            toast.type === 'error' ? 'bg-red-500 text-white' :
+            'bg-indigo-500 text-white'
+          }`}
+          onClick={() => setToast(null)}
+        >
+          {toast.message}
+        </div>
+      )}
       <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 px-4 md:px-6 py-4 flex justify-between items-center">
         <div className="flex items-center gap-3">
           <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-lg">
