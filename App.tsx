@@ -93,11 +93,32 @@ const App: React.FC = () => {
     };
   }, [syncCode]);
 
+  // Global paste listener so Ctrl+V works even when an input field has focus
   useEffect(() => {
-    if (isAdding && modalOverlayRef.current) {
-      // focus overlay so paste (Ctrl+V) is captured
-      modalOverlayRef.current.focus();
-    }
+    if (!isAdding) return;
+    const handler = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      let handled = false;
+      Array.from(items).forEach((item) => {
+        if (item.kind === 'file' && item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const dataUrl = reader.result as string;
+              setImagePreviews(prev => [...prev, dataUrl]);
+              setImageRefs(prev => [...prev, dataUrl]);
+            };
+            reader.readAsDataURL(file);
+            handled = true;
+          }
+        }
+      });
+      if (handled) e.preventDefault();
+    };
+    document.addEventListener('paste', handler);
+    return () => document.removeEventListener('paste', handler);
   }, [isAdding]);
 
   const saveProperties = (newProps: Property[]) => {
@@ -500,7 +521,7 @@ const App: React.FC = () => {
 
       {/* Manual Entry Modal */}
       {isAdding && (
-      <div ref={modalOverlayRef} onPaste={handlePaste} tabIndex={0} className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-50 flex items-center justify-center p-4 overflow-y-auto">
+      <div ref={modalOverlayRef} tabIndex={0} className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-[2rem] md:rounded-[3rem] w-full max-w-2xl shadow-2xl overflow-hidden my-auto modal-animate">
             <div className="p-6 md:p-8 border-b border-slate-100 flex justify-between items-center">
               <h2 className="text-xl md:text-2xl font-black text-slate-800">הוספת מודעה חדשה</h2>
