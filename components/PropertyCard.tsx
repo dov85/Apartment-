@@ -33,14 +33,14 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
     const resolve = async () => {
       const img = property.images && property.images.length > 0 ? property.images[0] : null;
       if (!img) { setResolvedMainImage(null); return; }
-      if (typeof img === 'string' && img.startsWith('idb://')) {
-        const key = img.replace('idb://', '');
+      if (typeof img === 'string' && img.startsWith('data:')) {
+        if (active) setResolvedMainImage(img);
+      } else if (typeof img === 'string') {
+        const key = img.startsWith('idb://') ? img.replace('idb://', '') : img;
         try {
           const url = await getImageObjectURL(key);
           if (active) setResolvedMainImage(url);
         } catch (e) { console.error(e); if (active) setResolvedMainImage(null); }
-      } else {
-        setResolvedMainImage(img as string);
       }
     };
     resolve();
@@ -55,13 +55,14 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
       const imgs = property.images || [];
       const urls: string[] = [];
       for (const img of imgs) {
-        if (typeof img === 'string' && img.startsWith('idb://')) {
+        if (typeof img === 'string' && img.startsWith('data:')) {
+          urls.push(img);
+        } else if (typeof img === 'string') {
+          const key = img.startsWith('idb://') ? img.replace('idb://', '') : img;
           try {
-            const url = await getImageObjectURL(img.replace('idb://', ''));
+            const url = await getImageObjectURL(key);
             urls.push(url || '');
           } catch { urls.push(''); }
-        } else {
-          urls.push(img as string);
         }
       }
       if (active) setResolvedGalleryImages(urls.filter(Boolean));

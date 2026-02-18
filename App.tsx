@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Property, PropertyStatus } from './types.ts';
 import PropertyCard from './components/PropertyCard.tsx';
 import MapView from './components/MapView';
-import { saveImageDataUrl, deleteImageKey, getImageObjectURL } from './utils/idbImages';
+import { saveImageDataUrl, deleteImageKey, getImageObjectURL, loadApartmentsFromFile, saveApartmentsToFile } from './utils/idbImages';
 
 const SYNC_SERVICE_URL = 'https://api.keyvalue.xyz'; 
 
@@ -32,8 +32,18 @@ const App: React.FC = () => {
   const modalOverlayRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('apartments');
-    if (saved) setProperties(JSON.parse(saved));
+    // Load from file API first, fallback to localStorage
+    (async () => {
+      const fileData = await loadApartmentsFromFile();
+      if (fileData && fileData.length > 0) {
+        setProperties(fileData);
+        // Also keep localStorage in sync
+        try { localStorage.setItem('apartments', JSON.stringify(fileData)); } catch {}
+      } else {
+        const saved = localStorage.getItem('apartments');
+        if (saved) setProperties(JSON.parse(saved));
+      }
+    })();
   }, []);
 
   // migrate old saved data which used `address` into `street`/`city`
@@ -124,19 +134,21 @@ const App: React.FC = () => {
   const saveProperties = (newProps: Property[]) => {
     console.log('saveProperties: saving', newProps.length, 'items');
     setProperties(newProps);
+    // Save to file on disk (primary)
+    saveApartmentsToFile(newProps).then(ok => {
+      if (ok) console.log('Saved to data/apartments.json');
+      else console.warn('File save failed, using localStorage only');
+    });
+    // Also save to localStorage as fallback
     try {
       localStorage.setItem('apartments', JSON.stringify(newProps));
     } catch (err) {
       console.error('localStorage setItem failed:', err);
-      // Fallback: try to save metadata without images to avoid exceeding quota
       try {
         const fallback = newProps.map(p => ({ ...p, images: [] }));
         localStorage.setItem('apartments', JSON.stringify(fallback));
-        setProperties(fallback as Property[]);
-        alert('לא ניתן לשמור את התמונות בשל מגבלת שטח האחסון בדפדפן; שמרתי את המודעות ללא התמונות כדי שלא ייעלמו.');
       } catch (err2) {
         console.error('localStorage fallback also failed:', err2);
-        alert('שגיאה בשמירת המודעות ב-localStorage. בדוק שטח אחסון בדפדפן.');
       }
     }
     if (syncCode) pushDataToRemote(syncCode, newProps);
@@ -219,11 +231,15 @@ const App: React.FC = () => {
     setPhone(prop.phone || '');
     setLink(prop.link || '');
 
-    // Resolve idb:// keys to blob URLs for display, keep original refs
+    // Resolve stored image refs to displayable URLs, keep original refs
     const refs = prop.images || [];
     const displayUrls: string[] = [];
     for (const ref of refs) {
-      if (typeof ref === 'string' && ref.startsWith('idb://')) {
+      if (typeof ref === 'string' && ref.startsWith('data:')) {
+        // raw data URL — display directly
+        displayUrls.push(ref);
+      } else if (typeof ref === 'string' && ref.startsWith('idb://')) {
+        // legacy IDB key
         try {
           const blobUrl = await getImageObjectURL(ref.replace('idb://', ''));
           displayUrls.push(blobUrl || '');
@@ -231,8 +247,15 @@ const App: React.FC = () => {
           console.error('Failed to resolve idb image:', e);
           displayUrls.push('');
         }
-      } else {
-        displayUrls.push(ref as string);
+      } else if (typeof ref === 'string') {
+        // file key — resolve via helper (returns /api/images/<key> URL)
+        try {
+          const url = await getImageObjectURL(ref);
+          displayUrls.push(url || '');
+        } catch (e) {
+          console.error('Failed to resolve file image:', e);
+          displayUrls.push('');
+        }
       }
     }
     setImagePreviews(displayUrls.filter(Boolean));
@@ -256,7 +279,7 @@ const App: React.FC = () => {
       createdAt: Date.now(),
     } as any;
 
-    // try to geocode, move images to IndexedDB (so we can store many), then save
+    // try to geocode, save images to disk, then persist listing
     (async () => {
       const coords = await geocodeAddress(newPropBase.street, newPropBase.city);
       if (coords) {
@@ -264,15 +287,17 @@ const App: React.FC = () => {
         newPropBase.lon = coords.lon;
       }
 
-      // process images: convert data URLs to IDB keys, keep existing idb:// keys
+      // process images: convert data URLs to file/IDB keys, keep existing refs
       const finalImageRefs: string[] = [];
       for (const img of newPropBase.images || []) {
-        if (typeof img === 'string' && img.startsWith('idb://')) {
+        if (typeof img === 'string' && (img.startsWith('idb://') || img.startsWith('file://') || (!img.startsWith('data:') && !img.startsWith('blob:')))) {
+          // Already a stored reference — keep it
           finalImageRefs.push(img);
-        } else if (typeof img === 'string') {
+        } else if (typeof img === 'string' && img.startsWith('data:')) {
           try {
             const key = await saveImageDataUrl(img);
-            finalImageRefs.push('idb://' + key);
+            // key is a filename (file API) or starts with idb- (fallback)
+            finalImageRefs.push(key);
           } catch (e) {
             console.error('saveImageDataUrl failed', e);
           }
@@ -283,12 +308,16 @@ const App: React.FC = () => {
 
       let updated: Property[] = [];
       if (editingId) {
-        // delete any old idb images that were removed
+        // delete any old images that were removed
         const existing = properties.find(p => p.id === editingId);
         const oldImgs: string[] = existing?.images || [];
-        const toDelete = oldImgs.filter(i => i && i.startsWith('idb://') && !newProp.images.includes(i));
+        const newImgSet = new Set(newProp.images);
+        const toDelete = oldImgs.filter(i => i && !newImgSet.has(i) && !i.startsWith('data:') && !i.startsWith('blob:'));
         for (const d of toDelete) {
-          try { await deleteImageKey(d.replace('idb://', '')); } catch (e) { console.error('deleteImageKey failed', e); }
+          try {
+            const cleanKey = d.startsWith('idb://') ? d.replace('idb://', '') : d;
+            await deleteImageKey(cleanKey);
+          } catch (e) { console.error('deleteImageKey failed', e); }
         }
 
         updated = properties.map(p => p.id === editingId ? { ...p, ...newProp, id: editingId } : p);
@@ -364,12 +393,13 @@ const App: React.FC = () => {
     const prop = properties.find(p => p.id === id);
     const updated = properties.filter(p => p.id !== id);
     saveProperties(updated);
-    // async cleanup of images stored in IDB
+    // async cleanup of images stored on disk or IDB
     (async () => {
       if (prop?.images && prop.images.length) {
         for (const img of prop.images) {
-          if (typeof img === 'string' && img.startsWith('idb://')) {
-            try { await deleteImageKey(img.replace('idb://', '')); } catch (e) { console.error('deleteImageKey failed', e); }
+          if (typeof img === 'string' && !img.startsWith('data:') && !img.startsWith('blob:')) {
+            const cleanKey = img.startsWith('idb://') ? img.replace('idb://', '') : img;
+            try { await deleteImageKey(cleanKey); } catch (e) { console.error('deleteImageKey failed', e); }
           }
         }
       }
