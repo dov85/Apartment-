@@ -32,10 +32,14 @@ export async function isServerAvailable(): Promise<boolean> {
   if (_serverAvailable !== null) return _serverAvailable;
   try {
     const res = await fetch('/api/supabase/status', { signal: AbortSignal.timeout(1500) });
-    _serverAvailable = res.ok;
+    // GitHub Pages returns 200 with HTML for any path (SPA redirect).
+    // The real dev-server returns JSON. Check content-type to distinguish.
+    const ct = res.headers.get('content-type') || '';
+    _serverAvailable = res.ok && ct.includes('application/json');
   } catch {
     _serverAvailable = false;
   }
+  console.log('isServerAvailable:', _serverAvailable);
   return _serverAvailable;
 }
 
