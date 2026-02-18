@@ -34,14 +34,43 @@ const App: React.FC = () => {
   useEffect(() => {
     // Load from file API first, fallback to localStorage
     (async () => {
+      let data: any[] = [];
       const fileData = await loadApartmentsFromFile();
       if (fileData && fileData.length > 0) {
-        setProperties(fileData);
-        // Also keep localStorage in sync
-        try { localStorage.setItem('apartments', JSON.stringify(fileData)); } catch {}
+        data = fileData;
       } else {
         const saved = localStorage.getItem('apartments');
-        if (saved) setProperties(JSON.parse(saved));
+        if (saved) data = JSON.parse(saved);
+      }
+
+      // Cleanup: remove broken idb:// refs whose blobs no longer exist in IndexedDB
+      let changed = false;
+      for (const prop of data) {
+        if (!prop.images || !prop.images.length) continue;
+        const validImages: string[] = [];
+        for (const img of prop.images) {
+          if (typeof img === 'string' && img.startsWith('idb://')) {
+            try {
+              const url = await getImageObjectURL(img.replace('idb://', ''));
+              if (url) {
+                validImages.push(img);
+                if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+              } else { changed = true; }
+            } catch { changed = true; }
+          } else {
+            validImages.push(img);
+          }
+        }
+        if (validImages.length !== prop.images.length) {
+          prop.images = validImages;
+        }
+      }
+
+      setProperties(data);
+      try { localStorage.setItem('apartments', JSON.stringify(data)); } catch {}
+      if (changed) {
+        saveApartmentsToFile(data);
+        console.log('Cleaned up broken idb:// image references');
       }
     })();
   }, []);
