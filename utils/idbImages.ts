@@ -32,26 +32,13 @@ export async function deleteFileImage(key: string): Promise<void> {
 // ── Unified helpers (handle both file:// and idb:// refs) ──
 
 export async function saveImageDataUrl(dataUrl: string): Promise<string> {
-  const server = await isServerAvailable();
-
-  if (server) {
-    // Server mode: save to file API, also cloud (non-blocking)
-    try {
-      const key = await saveImageToFile(dataUrl);
-      uploadImageToCloud(dataUrl).catch(e => console.warn('Cloud image upload failed:', e));
-      return key; // stored on disk
-    } catch (e) {
-      console.warn('File API unavailable, falling back', e);
-    }
-  } else {
-    // Standalone mode: upload directly to Supabase cloud
-    try {
-      const key = await uploadImageToCloud(dataUrl);
-      console.log('Image saved to Supabase cloud (standalone mode):', key);
-      return key; // same bare key format — will resolve via cloud URL
-    } catch (e) {
-      console.warn('Cloud upload failed in standalone mode', e);
-    }
+  // Always upload to Supabase cloud (primary storage)
+  try {
+    const key = await uploadImageToCloud(dataUrl);
+    console.log('Image saved to Supabase cloud ☁️:', key);
+    return key;
+  } catch (e) {
+    console.warn('Cloud image upload failed, falling back to IDB', e);
   }
 
   // Final fallback: IndexedDB

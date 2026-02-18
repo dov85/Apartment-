@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Property, PropertyStatus } from './types.ts';
 import PropertyCard from './components/PropertyCard.tsx';
 import MapView from './components/MapView';
-import { saveImageDataUrl, deleteImageKey, getImageObjectURL, loadApartmentsFromFile, saveApartmentsToFile } from './utils/idbImages';
+import { saveImageDataUrl, deleteImageKey, getImageObjectURL, saveApartmentsToFile } from './utils/idbImages';
 import { loadApartmentsFromCloud, saveApartmentsToCloud, isServerAvailable } from './services/supabaseSync';
 
 const SYNC_SERVICE_URL = 'https://api.keyvalue.xyz'; 
@@ -41,24 +41,17 @@ const App: React.FC = () => {
   const modalOverlayRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    // Load from file API first, then cloud, then localStorage
+    // Load from Supabase cloud first, then localStorage
     (async () => {
       let data: any[] = [];
-      const fileData = await loadApartmentsFromFile();
-      if (fileData && fileData.length > 0) {
-        data = fileData;
+      const cloudData = await loadApartmentsFromCloud();
+      if (cloudData && cloudData.length > 0) {
+        data = cloudData;
+        console.log('Loaded from Supabase cloud ☁️');
       } else {
-        // Try loading from Supabase cloud
-        const cloudData = await loadApartmentsFromCloud();
-        if (cloudData && cloudData.length > 0) {
-          data = cloudData;
-          // Save cloud data locally so next load is faster
-          saveApartmentsToFile(data);
-          console.log('Loaded from Supabase cloud and saved locally');
-        } else {
-          const saved = localStorage.getItem('apartments');
-          if (saved) data = JSON.parse(saved);
-        }
+        const saved = localStorage.getItem('apartments');
+        if (saved) data = JSON.parse(saved);
+        console.log('Cloud unavailable, loaded from localStorage');
       }
 
       // Cleanup: remove broken idb:// refs whose blobs no longer exist in IndexedDB
@@ -87,7 +80,8 @@ const App: React.FC = () => {
       setProperties(data);
       try { localStorage.setItem('apartments', JSON.stringify(data)); } catch {}
       if (changed) {
-        saveApartmentsToFile(data);
+        // Save cleaned data back to cloud
+        saveApartmentsToCloud(data).catch(() => {});
         console.log('Cleaned up broken idb:// image references');
       }
     })();
@@ -181,15 +175,10 @@ const App: React.FC = () => {
   const saveProperties = (newProps: Property[]) => {
     console.log('saveProperties: saving', newProps.length, 'items');
     setProperties(newProps);
-    // Save to file on disk (primary)
-    saveApartmentsToFile(newProps).then(ok => {
-      if (ok) console.log('Saved to data/apartments.json');
-      else console.warn('File save failed, using localStorage only');
-    });
-    // Sync to Supabase cloud (non-blocking)
+    // Save to Supabase cloud (primary)
     saveApartmentsToCloud(newProps).then(ok => {
-      if (ok) console.log('Synced to Supabase cloud ☁️');
-      else console.warn('Cloud sync failed (will retry next save)');
+      if (ok) console.log('Saved to Supabase cloud ☁️');
+      else console.warn('Cloud save failed (will retry next save)');
     });
     // Also save to localStorage as fallback
     try {
@@ -512,6 +501,36 @@ const App: React.FC = () => {
     saveProperties(updated);
   };
 
+  const [isSavingLocal, setIsSavingLocal] = useState(false);
+
+  const handleSaveToLocal = async () => {
+    if (!confirm('זה ימחק את הדאטה המקומית ויחליף במה שיש בענן. להמשיך?')) return;
+    setIsSavingLocal(true);
+    try {
+      const cloudData = await loadApartmentsFromCloud();
+      if (!cloudData || cloudData.length === 0) {
+        alert('לא נמצאו נתונים בענן!');
+        setIsSavingLocal(false);
+        return;
+      }
+      // Overwrite local file
+      const fileOk = await saveApartmentsToFile(cloudData);
+      if (fileOk) {
+        console.log('Local data/apartments.json overwritten with cloud data');
+      } else {
+        console.warn('Could not write local file (server not running?)');
+      }
+      // Update state and localStorage
+      setProperties(cloudData);
+      try { localStorage.setItem('apartments', JSON.stringify(cloudData)); } catch {}
+      alert(`הדאטה המקומית עודכנה בהצלחה! (${cloudData.length} דירות)`);
+    } catch (e) {
+      console.error('Save to local failed:', e);
+      alert('שגיאה בשמירה מקומית');
+    }
+    setIsSavingLocal(false);
+  };
+
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.href)}`;
 
   return (
@@ -535,6 +554,18 @@ const App: React.FC = () => {
         </div>
         
         <div className="flex gap-1.5">
+          <button 
+            onClick={handleSaveToLocal}
+            disabled={isSavingLocal}
+            className="p-2.5 rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all active:scale-90 flex items-center gap-2 disabled:opacity-50"
+            title="שמור מהענן למחשב"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            <span className="hidden sm:block text-[10px] font-black uppercase tracking-wider">{isSavingLocal ? '...' : 'שמור למחשב'}</span>
+          </button>
+
           <button 
             onClick={() => setShowMobileLink(true)}
             className="p-2.5 rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all active:scale-90 flex items-center gap-2"

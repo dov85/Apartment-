@@ -40,9 +40,11 @@
     ],
     "link": "https://www.facebook.com/groups/963153170558917/permalink/2978356595705221/?mibextid=wwXIfr&rdid=e9OF8la2Y6QFqiag#",
     "status": "חדש",
-    "createdAt": 1771429144431,
+    "createdAt": 1771430654236,
     "lat": 32.0454017,
-    "lon": 34.812061
+    "lon": 34.812061,
+    "hasParking": false,
+    "hasBrokerFee": false
   },
   {
     "id": "1771428846824",
