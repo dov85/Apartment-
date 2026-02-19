@@ -16,6 +16,7 @@ interface PropertyCardProps {
   onStatusChange: (id: string, status: PropertyStatus | 'DELETE') => void;
   onEdit?: (id: string) => void;
   onUpdate?: (id: string, updates: Partial<Property>) => void;
+  hoverInterval?: number;
 }
 
 /** Build a display title: user title → street+city → fallback */
@@ -60,7 +61,7 @@ function formatEntryDate(entryDate: string): string {
   return d.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
 }
 
-const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, onEdit, onUpdate }) => {
+const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, onEdit, onUpdate, hoverInterval = 2000 }) => {
   const [showNotes, setShowNotes] = useState(false);
   const [localNotes, setLocalNotes] = useState(property.notes || '');
   const [detailOpen, setDetailOpen] = useState(false);
@@ -208,8 +209,8 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
     if (totalImages <= 1) return;
     hoverCycleRef.current = setInterval(() => {
       setCardImageIndex(i => (i + 1) % totalImages);
-    }, 2000);
-  }, [totalImages]);
+    }, hoverInterval);
+  }, [totalImages, hoverInterval]);
 
   const handleImageMouseLeave = useCallback(() => {
     if (hoverCycleRef.current) {

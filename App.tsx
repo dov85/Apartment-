@@ -41,6 +41,10 @@ const App: React.FC = () => {
   const [entryDate, setEntryDate] = useState('');
   const [formStatus, setFormStatus] = useState<PropertyStatus>(PropertyStatus.NEW);
   const [sortBy, setSortBy] = useState<'date' | 'price' | 'rating'>('date');
+  const [hoverInterval, setHoverInterval] = useState<number>(() => {
+    const saved = localStorage.getItem('hoverInterval');
+    return saved ? parseInt(saved) : 2000;
+  });
   const [storageUsage, setStorageUsage] = useState<{ totalBytes: number; fileCount: number } | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const toastTimer = useRef<any>(null);
@@ -745,6 +749,20 @@ const App: React.FC = () => {
                 {label}
               </button>
             ))}
+
+            <span className="text-xs font-black text-slate-400 uppercase tracking-wider mr-4">🖼️ מהירות החלפה:</span>
+            <select
+              value={hoverInterval}
+              onChange={(e) => { const v = parseInt(e.target.value); setHoverInterval(v); localStorage.setItem('hoverInterval', String(v)); }}
+              className="px-2 py-1.5 rounded-lg text-xs font-bold bg-white border border-slate-200 text-slate-600 outline-none focus:border-indigo-400 transition-all"
+            >
+              <option value={500}>0.5 שניות</option>
+              <option value={1000}>1 שנייה</option>
+              <option value={1500}>1.5 שניות</option>
+              <option value={2000}>2 שניות</option>
+              <option value={3000}>3 שניות</option>
+              <option value={5000}>5 שניות</option>
+            </select>
           </div>
         )}
 
@@ -763,6 +781,7 @@ const App: React.FC = () => {
                 onStatusChange={updateStatus}
                 onEdit={handleEdit}
                 onUpdate={updateProperty}
+                hoverInterval={hoverInterval}
               />
             ))}
           </div>
