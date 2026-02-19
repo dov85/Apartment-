@@ -94,7 +94,9 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
     onUpdate && onUpdate(property.id, { ratingRotem: newRating || undefined });
   };
 
-  const combinedRating = (property.rating || 0) + (property.ratingRotem || 0); = (status: PropertyStatus) => {
+  const combinedRating = (property.rating || 0) + (property.ratingRotem || 0);
+
+  const getStatusColor = (status: PropertyStatus) => {
     switch (status) {
       case PropertyStatus.NEW: return 'bg-blue-100 text-blue-800';
       case PropertyStatus.FAVORITE: return 'bg-yellow-100 text-yellow-800';
