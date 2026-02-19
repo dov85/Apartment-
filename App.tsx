@@ -38,6 +38,7 @@ const App: React.FC = () => {
   const [notes, setNotes] = useState('');
   const [reminderDate, setReminderDate] = useState('');
   const [reminderText, setReminderText] = useState('');
+  const [entryDate, setEntryDate] = useState('');
   const [formStatus, setFormStatus] = useState<PropertyStatus>(PropertyStatus.NEW);
   const [sortBy, setSortBy] = useState<'date' | 'price' | 'rating'>('date');
   const [storageUsage, setStorageUsage] = useState<{ totalBytes: number; fileCount: number } | null>(null);
@@ -312,6 +313,7 @@ const App: React.FC = () => {
     setNotes(prop.notes || '');
     setReminderDate(prop.reminderDate || '');
     setReminderText(prop.reminderText || '');
+    setEntryDate(prop.entryDate || '');
     setFormStatus(prop.status || PropertyStatus.NEW);
 
     // Resolve stored image refs to displayable URLs, keep original refs
@@ -414,6 +416,7 @@ const App: React.FC = () => {
         notes: notes || undefined,
         reminderDate: reminderDate || undefined,
         reminderText: reminderText || undefined,
+        entryDate: entryDate || undefined,
         images: finalImageRefs,
         link: link || '',
         status: currentEditingId ? formStatus : PropertyStatus.NEW,
@@ -501,6 +504,7 @@ const App: React.FC = () => {
     setNotes('');
     setReminderDate('');
     setReminderText('');
+    setEntryDate('');
     setFormStatus(PropertyStatus.NEW);
     setEditingId(null);
   };
@@ -959,6 +963,16 @@ const App: React.FC = () => {
                     placeholder="0"
                     value={floor}
                     onChange={(e) => setFloor(e.target.value)}
+                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl md:rounded-2xl p-3 md:p-4 text-slate-800 font-bold focus:border-indigo-500 focus:bg-white outline-none transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">📅 תאריך כניסה</label>
+                  <input
+                    type="month"
+                    value={entryDate}
+                    onChange={(e) => setEntryDate(e.target.value)}
                     className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl md:rounded-2xl p-3 md:p-4 text-slate-800 font-bold focus:border-indigo-500 focus:bg-white outline-none transition-all"
                   />
                 </div>

@@ -52,6 +52,14 @@ function formatReminderDate(dateStr: string): string {
   return d.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
 }
 
+/** Format month+year entry date for Hebrew display */
+function formatEntryDate(entryDate: string): string {
+  if (!entryDate) return '';
+  const [year, month] = entryDate.split('-');
+  const d = new Date(parseInt(year), parseInt(month) - 1, 1);
+  return d.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
+}
+
 const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, onEdit, onUpdate }) => {
   const [showNotes, setShowNotes] = useState(false);
   const [localNotes, setLocalNotes] = useState(property.notes || '');
@@ -107,6 +115,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
   const cardPanRef = useRef<{ lastX: number; lastY: number } | null>(null);
   const cardSwipeRef = useRef<{ startX: number; startY: number; startTime: number } | null>(null);
   const cardImgContainerRef = useRef<HTMLDivElement>(null);
+  const hoverCycleRef = useRef<any>(null);
 
   // Reset card zoom when changing image
   useEffect(() => { setCardZoom(1); setCardZoomTranslate({ x: 0, y: 0 }); }, [safeCardIndex]);
@@ -194,6 +203,20 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
       setCardZoom(2.5);
     }
   }, [cardZoom]);
+
+  const handleImageMouseEnter = useCallback(() => {
+    if (totalImages <= 1) return;
+    hoverCycleRef.current = setInterval(() => {
+      setCardImageIndex(i => (i + 1) % totalImages);
+    }, 2000);
+  }, [totalImages]);
+
+  const handleImageMouseLeave = useCallback(() => {
+    if (hoverCycleRef.current) {
+      clearInterval(hoverCycleRef.current);
+      hoverCycleRef.current = null;
+    }
+  }, []);
 
   // Gallery lightbox state
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -337,6 +360,8 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
         ref={cardImgContainerRef}
         className="relative h-64 bg-slate-100 shrink-0 cursor-pointer overflow-hidden"
         onClick={cardZoom > 1 ? undefined : openGallery}
+        onMouseEnter={totalImages > 1 ? handleImageMouseEnter : undefined}
+        onMouseLeave={totalImages > 1 ? handleImageMouseLeave : undefined}
         onTouchStart={totalImages > 0 ? cardHandleTouchStart : undefined}
         onTouchMove={totalImages > 0 ? cardHandleTouchMove : undefined}
         onTouchEnd={totalImages > 0 ? cardHandleTouchEnd : undefined}
@@ -505,6 +530,9 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
           )}
           {property.hasBrokerFee && (
             <span className="bg-red-50 text-red-700 px-2.5 py-1 rounded-lg">💰 תיווך</span>
+          )}
+          {property.entryDate && (
+            <span className="bg-teal-50 text-teal-700 px-2.5 py-1 rounded-lg">📅 {formatEntryDate(property.entryDate)}</span>
           )}
         </div>
 
@@ -728,7 +756,8 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
               {property.hasBalcony && <span className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg">🏞️ מרפסת</span>}
               {property.hasParking && <span className="bg-purple-50 text-purple-700 px-3 py-1.5 rounded-lg">🅿️ חניה</span>}
               {property.hasBrokerFee && <span className="bg-red-50 text-red-700 px-3 py-1.5 rounded-lg">💰 דמי תיווך</span>}
-              {!property.hasElevator && !property.hasBalcony && !property.hasParking && !property.hasBrokerFee && (
+              {property.entryDate && <span className="bg-teal-50 text-teal-700 px-3 py-1.5 rounded-lg">📅 כניסה: {formatEntryDate(property.entryDate)}</span>}
+              {!property.hasElevator && !property.hasBalcony && !property.hasParking && !property.hasBrokerFee && !property.entryDate && (
                 <span className="text-slate-400">אין תגיות</span>
               )}
             </div>
