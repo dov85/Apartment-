@@ -87,6 +87,13 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
     const newRating = property.rating === star ? 0 : star;
     onUpdate && onUpdate(property.id, { rating: newRating || undefined });
   };
+
+  const handleRatingRotemClick = (star: number) => {
+    const newRating = property.ratingRotem === star ? 0 : star;
+    onUpdate && onUpdate(property.id, { ratingRotem: newRating || undefined });
+  };
+
+  const combinedRating = (property.rating || 0) + (property.ratingRotem || 0);
   const getStatusColor = (status: PropertyStatus) => {
     switch (status) {
       case PropertyStatus.NEW: return 'bg-blue-100 text-blue-800';
@@ -466,9 +473,9 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
         )}
 
         <div className="absolute top-4 right-4 flex items-center gap-2">
-          {property.rating != null && property.rating > 0 && (
+          {combinedRating > 0 && (
             <span className="px-3 py-2 rounded-2xl text-xs font-black shadow-lg backdrop-blur-md bg-yellow-400/90 text-yellow-900 flex items-center gap-1">
-              <span className="text-sm">★</span> {property.rating}/10
+              <span className="text-sm">★</span> {combinedRating}/20
             </span>
           )}
           <span className={`px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg backdrop-blur-md ${getStatusColor(property.status)}`}>
@@ -537,21 +544,48 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
           )}
         </div>
 
-        {/* Interactive rating stars */}
-        <div className="flex items-center gap-0.5 mb-3" dir="ltr">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => (
-            <button
-              key={star}
-              onClick={() => handleRatingClick(star)}
-              className={`text-lg transition-all hover:scale-125 ${star <= (property.rating || 0) ? 'text-yellow-400 drop-shadow-sm' : 'text-slate-200 hover:text-yellow-300'}`}
-            >
-              ★
-            </button>
-          ))}
-          {(property.rating || 0) > 0 && (
-            <span className="text-xs font-black text-slate-500 mr-1">{property.rating}/10</span>
-          )}
+        {/* Interactive rating stars - Dubi */}
+        <div className="mb-1">
+          <span className="text-[10px] font-black text-slate-400">דובי</span>
+          <div className="flex items-center gap-0.5" dir="ltr">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => (
+              <button
+                key={star}
+                onClick={() => handleRatingClick(star)}
+                className={`text-lg transition-all hover:scale-125 ${star <= (property.rating || 0) ? 'text-yellow-400 drop-shadow-sm' : 'text-slate-200 hover:text-yellow-300'}`}
+              >
+                ★
+              </button>
+            ))}
+            {(property.rating || 0) > 0 && (
+              <span className="text-xs font-black text-slate-500 mr-1">{property.rating}/10</span>
+            )}
+          </div>
         </div>
+
+        {/* Interactive rating stars - Rotem */}
+        <div className="mb-1">
+          <span className="text-[10px] font-black text-pink-400">רותם</span>
+          <div className="flex items-center gap-0.5" dir="ltr">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => (
+              <button
+                key={star}
+                onClick={() => handleRatingRotemClick(star)}
+                className={`text-lg transition-all hover:scale-125 ${star <= (property.ratingRotem || 0) ? 'text-pink-400 drop-shadow-sm' : 'text-slate-200 hover:text-pink-300'}`}
+              >
+                ★
+              </button>
+            ))}
+            {(property.ratingRotem || 0) > 0 && (
+              <span className="text-xs font-black text-pink-500 mr-1">{property.ratingRotem}/10</span>
+            )}
+          </div>
+        </div>
+
+        {/* Combined rating */}
+        {combinedRating > 0 && (
+          <div className="mb-3 text-xs font-black text-indigo-600">משולב: {combinedRating}/20</div>
+        )}
 
         {/* Notes preview */}
         {localNotes && (
@@ -765,7 +799,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
 
             {/* Rating */}
             <div>
-              <span className="block text-[10px] font-black text-slate-400 uppercase mb-2">דירוג</span>
+              <span className="block text-[10px] font-black text-slate-400 uppercase mb-2">דירוג דובי</span>
               <div className="flex items-center gap-0.5" dir="ltr">
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => (
                   <button
@@ -781,6 +815,33 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
                 )}
               </div>
             </div>
+
+            {/* Rating Rotem */}
+            <div>
+              <span className="block text-[10px] font-black text-pink-400 uppercase mb-2">דירוג רותם</span>
+              <div className="flex items-center gap-0.5" dir="ltr">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => (
+                  <button
+                    key={star}
+                    onClick={() => handleRatingRotemClick(star)}
+                    className={`text-xl transition-all hover:scale-125 ${star <= (property.ratingRotem || 0) ? 'text-pink-400 drop-shadow-sm' : 'text-slate-200 hover:text-pink-300'}`}
+                  >
+                    ★
+                  </button>
+                ))}
+                {(property.ratingRotem || 0) > 0 && (
+                  <span className="text-sm font-black text-pink-500 mr-2">{property.ratingRotem}/10</span>
+                )}
+              </div>
+            </div>
+
+            {/* Combined rating */}
+            {combinedRating > 0 && (
+              <div className="bg-gradient-to-r from-yellow-50 to-pink-50 border border-yellow-100 rounded-xl p-3 text-center">
+                <span className="text-[10px] font-black text-slate-400 uppercase">דירוג משולב</span>
+                <span className="text-2xl font-black text-indigo-600 mr-2">{combinedRating}/20</span>
+              </div>
+            )}
 
             {/* Reminder in detail modal */}
             <div>

@@ -35,12 +35,13 @@ const App: React.FC = () => {
   const [hasParking, setHasParking] = useState(false);
   const [hasBrokerFee, setHasBrokerFee] = useState(false);
   const [rating, setRating] = useState(0);
+  const [ratingRotem, setRatingRotem] = useState(0);
   const [notes, setNotes] = useState('');
   const [reminderDate, setReminderDate] = useState('');
   const [reminderText, setReminderText] = useState('');
   const [entryDate, setEntryDate] = useState('');
   const [formStatus, setFormStatus] = useState<PropertyStatus>(PropertyStatus.NEW);
-  const [sortBy, setSortBy] = useState<'date' | 'price' | 'rating'>('date');
+  const [sortBy, setSortBy] = useState<'date' | 'price' | 'rating' | 'reminder'>('date');
   const [hoverInterval, setHoverInterval] = useState<number>(() => {
     const saved = localStorage.getItem('hoverInterval');
     return saved ? parseInt(saved) : 2000;
@@ -314,6 +315,7 @@ const App: React.FC = () => {
     setHasParking(prop.hasParking || false);
     setHasBrokerFee(prop.hasBrokerFee || false);
     setRating(prop.rating || 0);
+    setRatingRotem(prop.ratingRotem || 0);
     setNotes(prop.notes || '');
     setReminderDate(prop.reminderDate || '');
     setReminderText(prop.reminderText || '');
@@ -417,6 +419,7 @@ const App: React.FC = () => {
         hasParking,
         hasBrokerFee,
         rating: rating || undefined,
+        ratingRotem: ratingRotem || undefined,
         notes: notes || undefined,
         reminderDate: reminderDate || undefined,
         reminderText: reminderText || undefined,
@@ -505,6 +508,7 @@ const App: React.FC = () => {
     setHasParking(false);
     setHasBrokerFee(false);
     setRating(0);
+    setRatingRotem(0);
     setNotes('');
     setReminderDate('');
     setReminderText('');
@@ -736,7 +740,7 @@ const App: React.FC = () => {
         {properties.length > 1 && (
           <div className="flex items-center gap-2 mb-4 flex-wrap">
             <span className="text-xs font-black text-slate-400 uppercase tracking-wider">מיין לפי:</span>
-            {([['date', 'תאריך'], ['rating', 'דירוג ⭐'], ['price', 'מחיר ₪']] as const).map(([key, label]) => (
+            {([['date', 'תאריך'], ['rating', 'דירוג ⭐'], ['price', 'מחיר ₪'], ['reminder', 'תזכורות 🔔']] as const).map(([key, label]) => (
               <button
                 key={key}
                 onClick={() => setSortBy(key)}
@@ -770,8 +774,19 @@ const App: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
             {[...properties]
               .sort((a, b) => {
-                if (sortBy === 'rating') return (b.rating || 0) - (a.rating || 0);
+                if (sortBy === 'rating') return ((b.rating || 0) + (b.ratingRotem || 0)) - ((a.rating || 0) + (a.ratingRotem || 0));
                 if (sortBy === 'price') return (a.price || 0) - (b.price || 0);
+                if (sortBy === 'reminder') {
+                  const getScore = (p: Property) => {
+                    if (!p.reminderDate) return 999999;
+                    const today = new Date(); today.setHours(0,0,0,0);
+                    const rem = new Date(p.reminderDate + 'T00:00:00');
+                    const diff = rem.getTime() - today.getTime();
+                    if (diff < 0) return 888888; // past reminders after upcoming
+                    return diff;
+                  };
+                  return getScore(a) - getScore(b);
+                }
                 return (b.createdAt || 0) - (a.createdAt || 0);
               })
               .map(property => (
@@ -1038,7 +1053,7 @@ const App: React.FC = () => {
 
               {/* Rating */}
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">דירוג ({rating}/10)</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">דירוג דובי ({rating}/10)</label>
                 <div className="flex gap-1 items-center" dir="ltr">
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => (
                     <button
@@ -1063,6 +1078,42 @@ const App: React.FC = () => {
                   )}
                 </div>
               </div>
+
+              {/* Rating Rotem */}
+              <div>
+                <label className="block text-[10px] font-black text-pink-400 uppercase tracking-widest mb-2 px-1">דירוג רותם ({ratingRotem}/10)</label>
+                <div className="flex gap-1 items-center" dir="ltr">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setRatingRotem(ratingRotem === star ? 0 : star)}
+                      className={`text-2xl transition-all hover:scale-125 ${
+                        star <= ratingRotem ? 'text-pink-400 drop-shadow-sm' : 'text-slate-200 hover:text-pink-200'
+                      }`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                  {ratingRotem > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setRatingRotem(0)}
+                      className="text-xs text-slate-400 hover:text-red-400 mr-2 font-bold"
+                    >
+                      נקה
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Combined rating display */}
+              {(rating > 0 || ratingRotem > 0) && (
+                <div className="bg-gradient-to-r from-yellow-50 to-pink-50 border border-yellow-100 rounded-xl p-3 text-center">
+                  <span className="text-[10px] font-black text-slate-400 uppercase">דירוג משולב</span>
+                  <span className="text-2xl font-black text-indigo-600 mr-2">{(rating || 0) + (ratingRotem || 0)}/20</span>
+                </div>
+              )}
 
               {/* סטטוס */}
               <div>
