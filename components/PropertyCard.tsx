@@ -17,6 +17,7 @@ interface PropertyCardProps {
   onEdit?: (id: string) => void;
   onUpdate?: (id: string, updates: Partial<Property>) => void;
   hoverInterval?: number;
+  cardId?: string;
 }
 
 /** Build a display title: user title → street+city → fallback */
@@ -61,7 +62,7 @@ function formatEntryDate(entryDate: string): string {
   return d.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
 }
 
-const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, onEdit, onUpdate, hoverInterval = 2000 }) => {
+const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, onEdit, onUpdate, hoverInterval = 2000, cardId }) => {
   const [showNotes, setShowNotes] = useState(false);
   const [localNotes, setLocalNotes] = useState(property.notes || '');
   const [detailOpen, setDetailOpen] = useState(false);
@@ -93,8 +94,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
     onUpdate && onUpdate(property.id, { ratingRotem: newRating || undefined });
   };
 
-  const combinedRating = (property.rating || 0) + (property.ratingRotem || 0);
-  const getStatusColor = (status: PropertyStatus) => {
+  const combinedRating = (property.rating || 0) + (property.ratingRotem || 0); = (status: PropertyStatus) => {
     switch (status) {
       case PropertyStatus.NEW: return 'bg-blue-100 text-blue-800';
       case PropertyStatus.FAVORITE: return 'bg-yellow-100 text-yellow-800';
@@ -363,7 +363,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
 
   return (
     <>
-    <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-xl transition-all group flex flex-col h-full">
+    <div id={cardId} className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-xl transition-all group flex flex-col h-full">
       <div
         ref={cardImgContainerRef}
         className="relative h-64 bg-slate-100 shrink-0 cursor-pointer overflow-hidden"
@@ -473,11 +473,6 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
         )}
 
         <div className="absolute top-4 right-4 flex items-center gap-2">
-          {combinedRating > 0 && (
-            <span className="px-3 py-2 rounded-2xl text-xs font-black shadow-lg backdrop-blur-md bg-yellow-400/90 text-yellow-900 flex items-center gap-1">
-              <span className="text-sm">★</span> {combinedRating}/20
-            </span>
-          )}
           <span className={`px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg backdrop-blur-md ${getStatusColor(property.status)}`}>
             {property.status}
           </span>
@@ -545,8 +540,8 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
         </div>
 
         {/* Interactive rating stars - Dubi */}
-        <div className="mb-1">
-          <span className="text-[10px] font-black text-slate-400">דובי</span>
+        <div className="flex items-center gap-1.5 mb-1" dir="rtl">
+          <span className="text-[10px] font-black text-slate-400 shrink-0 w-8">דובי</span>
           <div className="flex items-center gap-0.5" dir="ltr">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => (
               <button
@@ -564,8 +559,8 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
         </div>
 
         {/* Interactive rating stars - Rotem */}
-        <div className="mb-1">
-          <span className="text-[10px] font-black text-pink-400">רותם</span>
+        <div className="flex items-center gap-1.5 mb-3" dir="rtl">
+          <span className="text-[10px] font-black text-pink-400 shrink-0 w-8">רותם</span>
           <div className="flex items-center gap-0.5" dir="ltr">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => (
               <button
@@ -581,11 +576,6 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
             )}
           </div>
         </div>
-
-        {/* Combined rating */}
-        {combinedRating > 0 && (
-          <div className="mb-3 text-xs font-black text-indigo-600">משולב: {combinedRating}/20</div>
-        )}
 
         {/* Notes preview */}
         {localNotes && (
@@ -797,51 +787,47 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onStatusChange, o
               )}
             </div>
 
-            {/* Rating */}
+            {/* Rating Dubi */}
             <div>
-              <span className="block text-[10px] font-black text-slate-400 uppercase mb-2">דירוג דובי</span>
-              <div className="flex items-center gap-0.5" dir="ltr">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => (
-                  <button
-                    key={star}
-                    onClick={() => handleRatingClick(star)}
-                    className={`text-xl transition-all hover:scale-125 ${star <= (property.rating || 0) ? 'text-yellow-400 drop-shadow-sm' : 'text-slate-200 hover:text-yellow-300'}`}
-                  >
-                    ★
-                  </button>
-                ))}
-                {(property.rating || 0) > 0 && (
-                  <span className="text-sm font-black text-slate-500 mr-2">{property.rating}/10</span>
-                )}
+              <div className="flex items-center gap-2" dir="rtl">
+                <span className="text-[10px] font-black text-slate-400 uppercase shrink-0">דובי</span>
+                <div className="flex items-center gap-0.5" dir="ltr">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => (
+                    <button
+                      key={star}
+                      onClick={() => handleRatingClick(star)}
+                      className={`text-xl transition-all hover:scale-125 ${star <= (property.rating || 0) ? 'text-yellow-400 drop-shadow-sm' : 'text-slate-200 hover:text-yellow-300'}`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                  {(property.rating || 0) > 0 && (
+                    <span className="text-sm font-black text-slate-500 mr-2">{property.rating}/10</span>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Rating Rotem */}
             <div>
-              <span className="block text-[10px] font-black text-pink-400 uppercase mb-2">דירוג רותם</span>
-              <div className="flex items-center gap-0.5" dir="ltr">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => (
-                  <button
-                    key={star}
-                    onClick={() => handleRatingRotemClick(star)}
-                    className={`text-xl transition-all hover:scale-125 ${star <= (property.ratingRotem || 0) ? 'text-pink-400 drop-shadow-sm' : 'text-slate-200 hover:text-pink-300'}`}
-                  >
-                    ★
-                  </button>
-                ))}
-                {(property.ratingRotem || 0) > 0 && (
-                  <span className="text-sm font-black text-pink-500 mr-2">{property.ratingRotem}/10</span>
-                )}
+              <div className="flex items-center gap-2" dir="rtl">
+                <span className="text-[10px] font-black text-pink-400 uppercase shrink-0">רותם</span>
+                <div className="flex items-center gap-0.5" dir="ltr">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(star => (
+                    <button
+                      key={star}
+                      onClick={() => handleRatingRotemClick(star)}
+                      className={`text-xl transition-all hover:scale-125 ${star <= (property.ratingRotem || 0) ? 'text-pink-400 drop-shadow-sm' : 'text-slate-200 hover:text-pink-300'}`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                  {(property.ratingRotem || 0) > 0 && (
+                    <span className="text-sm font-black text-pink-500 mr-2">{property.ratingRotem}/10</span>
+                  )}
+                </div>
               </div>
             </div>
-
-            {/* Combined rating */}
-            {combinedRating > 0 && (
-              <div className="bg-gradient-to-r from-yellow-50 to-pink-50 border border-yellow-100 rounded-xl p-3 text-center">
-                <span className="text-[10px] font-black text-slate-400 uppercase">דירוג משולב</span>
-                <span className="text-2xl font-black text-indigo-600 mr-2">{combinedRating}/20</span>
-              </div>
-            )}
 
             {/* Reminder in detail modal */}
             <div>

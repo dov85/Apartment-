@@ -9,6 +9,40 @@ import { compressImageDataUrl } from './utils/compressImage';
 
 const SYNC_SERVICE_URL = 'https://api.keyvalue.xyz'; 
 
+/** Build a display title: user title → street+city → fallback */
+function displayTitle(p: Property): string {
+  if (p.title && p.title !== 'דירה חדשה') return p.title;
+  const parts = [p.street, p.city].filter(Boolean);
+  return parts.length > 0 ? parts.join(', ') : 'ללא כותרת';
+}
+
+/** Check reminder status */
+function getReminderStatus(p: Property): 'none' | 'due' | 'upcoming' | 'past' {
+  if (!p.reminderDate) return 'none';
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const reminder = new Date(p.reminderDate + 'T00:00:00');
+  const diff = reminder.getTime() - today.getTime();
+  const days = Math.round(diff / (1000 * 60 * 60 * 24));
+  if (days < 0) return 'past';
+  if (days === 0) return 'due';
+  return 'upcoming';
+}
+
+/** Format date for display in Hebrew-friendly format */
+function formatReminderDate(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.round((d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (diff === 0) return 'היום';
+  if (diff === 1) return 'מחר';
+  if (diff === -1) return 'אתמול';
+  if (diff < -1) return `לפני ${Math.abs(diff)} ימים`;
+  if (diff <= 7) return `בעוד ${diff} ימים`;
+  return d.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
+}
+
 const App: React.FC = () => {
   const [properties, setProperties] = useState<Property[]>([]);
   const [isAdding, setIsAdding] = useState(false);
@@ -42,6 +76,7 @@ const App: React.FC = () => {
   const [entryDate, setEntryDate] = useState('');
   const [formStatus, setFormStatus] = useState<PropertyStatus>(PropertyStatus.NEW);
   const [sortBy, setSortBy] = useState<'date' | 'price' | 'rating' | 'reminder'>('date');
+  const [showRemindersPanel, setShowRemindersPanel] = useState(false);
   const [hoverInterval, setHoverInterval] = useState<number>(() => {
     const saved = localStorage.getItem('hoverInterval');
     return saved ? parseInt(saved) : 2000;
@@ -774,6 +809,11 @@ const App: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
             {[...properties]
               .sort((a, b) => {
+                // Always bubble due (urgent) reminders to the top
+                const aDue = getReminderStatus(a) === 'due' ? 1 : 0;
+                const bDue = getReminderStatus(b) === 'due' ? 1 : 0;
+                if (aDue !== bDue) return bDue - aDue;
+
                 if (sortBy === 'rating') return ((b.rating || 0) + (b.ratingRotem || 0)) - ((a.rating || 0) + (a.ratingRotem || 0));
                 if (sortBy === 'price') return (a.price || 0) - (b.price || 0);
                 if (sortBy === 'reminder') {
@@ -782,7 +822,7 @@ const App: React.FC = () => {
                     const today = new Date(); today.setHours(0,0,0,0);
                     const rem = new Date(p.reminderDate + 'T00:00:00');
                     const diff = rem.getTime() - today.getTime();
-                    if (diff < 0) return 888888; // past reminders after upcoming
+                    if (diff < 0) return 888888;
                     return diff;
                   };
                   return getScore(a) - getScore(b);
@@ -797,6 +837,7 @@ const App: React.FC = () => {
                 onEdit={handleEdit}
                 onUpdate={updateProperty}
                 hoverInterval={hoverInterval}
+                cardId={`card-${property.id}`}
               />
             ))}
           </div>
@@ -817,6 +858,111 @@ const App: React.FC = () => {
           </div>
         )}
       </main>
+
+      {/* Reminders floating button */}
+      {properties.some(p => p.reminderDate && getReminderStatus(p) !== 'past') && (
+        <button
+          onClick={() => setShowRemindersPanel(true)}
+          className="fixed bottom-6 left-6 z-40 bg-amber-500 hover:bg-amber-600 text-white p-4 rounded-2xl shadow-2xl transition-all active:scale-90 flex items-center gap-2"
+        >
+          <span className="text-xl">🔔</span>
+          <span className="hidden sm:block text-xs font-black">תזכורות</span>
+          <span className="bg-white text-amber-600 text-[10px] font-black px-1.5 py-0.5 rounded-full">
+            {properties.filter(p => p.reminderDate && getReminderStatus(p) !== 'past' && getReminderStatus(p) !== 'none').length}
+          </span>
+        </button>
+      )}
+
+      {/* Reminders side panel */}
+      {showRemindersPanel && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50" onClick={() => setShowRemindersPanel(false)}>
+          <div
+            className="absolute top-0 left-0 h-full w-full sm:w-96 bg-white shadow-2xl overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+            dir="rtl"
+          >
+            <div className="sticky top-0 bg-white/90 backdrop-blur-md border-b border-slate-100 p-5 flex justify-between items-center z-10">
+              <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                🔔 תזכורות
+              </h2>
+              <button
+                onClick={() => setShowRemindersPanel(false)}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-500 p-2 rounded-xl transition-all"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              {(() => {
+                const reminders = properties
+                  .filter(p => p.reminderDate && getReminderStatus(p) !== 'none')
+                  .sort((a, b) => {
+                    const statusOrder = { due: 0, upcoming: 1, past: 2, none: 3 };
+                    const sa = statusOrder[getReminderStatus(a)];
+                    const sb = statusOrder[getReminderStatus(b)];
+                    if (sa !== sb) return sa - sb;
+                    return new Date(a.reminderDate! + 'T00:00:00').getTime() - new Date(b.reminderDate! + 'T00:00:00').getTime();
+                  });
+
+                if (reminders.length === 0) {
+                  return (
+                    <div className="text-center py-16 text-slate-400">
+                      <span className="text-4xl block mb-3">🔔</span>
+                      <p className="font-bold">אין תזכורות פעילות</p>
+                    </div>
+                  );
+                }
+
+                return reminders.map(p => {
+                  const status = getReminderStatus(p);
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        setShowRemindersPanel(false);
+                        // Scroll to card
+                        const el = document.getElementById(`card-${p.id}`);
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }}
+                      className={`w-full text-right p-4 rounded-2xl border-2 transition-all hover:shadow-md ${
+                        status === 'due' ? 'bg-red-50 border-red-200 hover:border-red-300' :
+                        status === 'upcoming' ? 'bg-amber-50 border-amber-200 hover:border-amber-300' :
+                        'bg-slate-50 border-slate-200 hover:border-slate-300 opacity-60'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <span className={`text-sm font-black ${
+                          status === 'due' ? 'text-red-600' :
+                          status === 'upcoming' ? 'text-amber-600' :
+                          'text-slate-400'
+                        }`}>
+                          {status === 'due' && '🔴 '}
+                          {status === 'upcoming' && '🟡 '}
+                          {status === 'past' && '⚪ '}
+                          {formatReminderDate(p.reminderDate!)}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-bold shrink-0">
+                          {new Date(p.reminderDate! + 'T00:00:00').toLocaleDateString('he-IL')}
+                        </span>
+                      </div>
+                      <p className="text-sm font-black text-slate-800 truncate">{displayTitle(p)}</p>
+                      {p.reminderText && (
+                        <p className="text-xs text-slate-500 font-medium mt-1 truncate">{p.reminderText}</p>
+                      )}
+                      {p.price > 0 && (
+                        <span className="text-xs text-indigo-500 font-bold">₪{p.price.toLocaleString()}</span>
+                      )}
+                    </button>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* QR Code / Mobile Link Modal */}
       {showMobileLink && (
@@ -1106,14 +1252,6 @@ const App: React.FC = () => {
                   )}
                 </div>
               </div>
-
-              {/* Combined rating display */}
-              {(rating > 0 || ratingRotem > 0) && (
-                <div className="bg-gradient-to-r from-yellow-50 to-pink-50 border border-yellow-100 rounded-xl p-3 text-center">
-                  <span className="text-[10px] font-black text-slate-400 uppercase">דירוג משולב</span>
-                  <span className="text-2xl font-black text-indigo-600 mr-2">{(rating || 0) + (ratingRotem || 0)}/20</span>
-                </div>
-              )}
 
               {/* סטטוס */}
               <div>
